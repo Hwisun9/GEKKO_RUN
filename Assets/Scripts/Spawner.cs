@@ -7,10 +7,18 @@ public class SpawnItem
 {
     public GameObject prefab;
     public float spawnWeight = 1f; // 생성 확률 가중치
-    public bool isItem = true; // true: 아이템, false: 장애물
+    public ItemType itemType = ItemType.Normal; // 아이템 타입 (기존 isItem 대신 사용)
     public float speedMultiplier = 1f; // 속도 배율
     public int scoreValue = 0; // 점수 값
     public Color effectColor = Color.white; // 이펙트 색상
+}
+
+// 아이템 타입 열거형 추가
+public enum ItemType
+{
+    Normal,    // 일반 아이템
+    Obstacle,  // 장애물
+    Magnet     // 자석 아이템
 }
 
 [System.Serializable]
@@ -20,6 +28,7 @@ public class SpawnWave
     public float duration = 10f; // 웨이브 지속 시간
     public float spawnInterval = 2f;
     public float itemChance = 0.3f; // 아이템 생성 확률 (0~1)
+    public float magnetChance = 0.05f; // 자석 아이템 생성 확률 추가
     public float speedMultiplier = 1f;
     public SpawnItem[] availableItems; // 이 웨이브에서 생성 가능한 아이템들
 }
@@ -44,6 +53,9 @@ public class Spawner : MonoBehaviour
     public bool enableSpecialPatterns = true;
     public float specialPatternChance = 0.1f; // 특수 패턴 확률
 
+    [Header("자석 아이템 설정")]
+    public float magnetItemChance = 0.1f; // 자석 아이템 생성 확률 (10%)
+
     // 내부 변수들
     private float timer = 0f;
     private float gameTime = 0f;
@@ -61,6 +73,31 @@ public class Spawner : MonoBehaviour
         if (useWaveSystem && waves.Length > 0)
         {
             currentWave = waves[0];
+        }
+
+        // 자석 아이템 설정 확인
+        CheckMagnetItemSetup();
+    }
+
+    void CheckMagnetItemSetup()
+    {
+        int magnetItems = 0;
+        foreach (var item in allSpawnItems)
+        {
+            if (item.itemType == ItemType.Magnet)
+            {
+                magnetItems++;
+                Debug.Log($" Magnet item found: {item.prefab.name}");
+            }
+        }
+
+        if (magnetItems == 0)
+        {
+            Debug.LogWarning(" No magnet items found in allSpawnItems array!");
+        }
+        else
+        {
+            Debug.Log($" Found {magnetItems} magnet item(s) in spawner");
         }
     }
 
@@ -146,6 +183,9 @@ public class Spawner : MonoBehaviour
 
         // 태그 및 추가 설정
         SetupObjectProperties(obj, itemToSpawn);
+
+        // 디버그 로그
+        Debug.Log($"Spawned: {obj.name} (Type: {itemToSpawn.itemType}, Tag: {obj.tag})");
     }
 
     SpawnItem SelectSpawnItem()
@@ -161,14 +201,46 @@ public class Spawner : MonoBehaviour
             availableItems = new List<SpawnItem>(allSpawnItems);
         }
 
-        // 아이템 vs 장애물 결정
+        //  자석 아이템 생성 확률 체크 (우선순위)
+        float magnetChance = useWaveSystem ? currentWave.magnetChance : magnetItemChance;
+        if (Random.value < magnetChance)
+        {
+            // 자석 아이템만 필터링
+            var magnetItems = availableItems.FindAll(item => item.itemType == ItemType.Magnet);
+            if (magnetItems.Count > 0)
+            {
+                Debug.Log(" Spawning magnet item!");
+                return SelectByWeight(magnetItems);
+            }
+            else
+            {
+                Debug.LogWarning("No magnet items available in current item list!");
+            }
+        }
+
+        // 일반 아이템 vs 장애물 결정
         float itemChance = useWaveSystem ? currentWave.itemChance : 0.3f;
         bool shouldSpawnItem = Random.value < itemChance;
 
-        // 해당 타입의 아이템만 필터링
-        availableItems.RemoveAll(item => item.isItem != shouldSpawnItem);
+        // 자석 아이템 제외하고 필터링
+        availableItems.RemoveAll(item => item.itemType == ItemType.Magnet);
 
-        if (availableItems.Count == 0) return null;
+        if (shouldSpawnItem)
+        {
+            // 일반 아이템만
+            availableItems.RemoveAll(item => item.itemType != ItemType.Normal);
+        }
+        else
+        {
+            // 장애물만  
+            availableItems.RemoveAll(item => item.itemType != ItemType.Obstacle);
+        }
+
+        if (availableItems.Count == 0)
+        {
+            Debug.LogWarning("No items available after filtering!");
+            return null;
+        }
 
         // 가중치 기반 선택
         return SelectByWeight(availableItems);
@@ -233,8 +305,28 @@ public class Spawner : MonoBehaviour
 
     void SetupObjectProperties(GameObject obj, SpawnItem spawnItem)
     {
-        // 태그 설정
-        obj.tag = spawnItem.isItem ? "Item" : "Obstacle";
+        //  태그 설정 - ItemType에 따라 정확히 설정
+        string tagToSet = "";
+
+        switch (spawnItem.itemType)
+        {
+            case ItemType.Normal:
+                tagToSet = "Item";
+                break;
+            case ItemType.Obstacle:
+                tagToSet = "Obstacle";
+                break;
+            case ItemType.Magnet:
+                tagToSet = "Magnet";  // 사용자가 설정한 태그명 사용
+                break;
+            default:
+                tagToSet = "Item";
+                Debug.LogWarning($"Unknown ItemType: {spawnItem.itemType}");
+                break;
+        }
+
+        obj.tag = tagToSet;
+        Debug.Log($" Set tag '{tagToSet}' for {obj.name} (ItemType: {spawnItem.itemType})");
 
         // 점수 값 설정
         ScoreItem scoreComponent = obj.GetComponent<ScoreItem>();
@@ -287,8 +379,8 @@ public class Spawner : MonoBehaviour
 
         for (int i = 0; i < 8; i++)
         {
-            // 아이템만 생성
-            var itemsOnly = System.Array.FindAll(allSpawnItems, item => item.isItem);
+            // 일반 아이템만 생성
+            var itemsOnly = System.Array.FindAll(allSpawnItems, item => item.itemType == ItemType.Normal);
             if (itemsOnly.Length > 0)
             {
                 var randomItem = itemsOnly[Random.Range(0, itemsOnly.Length)];
@@ -347,9 +439,9 @@ public class Spawner : MonoBehaviour
     {
         Debug.Log("특수 패턴: 보너스 타임!");
 
-        // 고점수 아이템들만 생성
+        // 고점수 일반 아이템들만 생성
         var highValueItems = System.Array.FindAll(allSpawnItems,
-            item => item.isItem && item.scoreValue > 15);
+            item => item.itemType == ItemType.Normal && item.scoreValue > 15);
 
         if (highValueItems.Length > 0)
         {
@@ -401,7 +493,7 @@ public class MovingObject : MonoBehaviour
     }
 }
 
-// 점수 아이템을 위한 컴포넌트
+// 점수 아이템을 위한 컴포넌트 - 수정된 버전
 public class ScoreItem : MonoBehaviour
 {
     public int scoreValue = 10;
@@ -411,23 +503,54 @@ public class ScoreItem : MonoBehaviour
     {
         if (other.CompareTag("Player"))
         {
+            // 디버그 로그 추가
+            Debug.Log($" Player collided with: {gameObject.name}, Tag: {gameObject.tag}");
+
             // GameManager가 존재하는지 확인
             if (GameManager.Instance != null)
             {
-                // 점수 추가
+                // 아이템 타입별 처리
                 if (gameObject.CompareTag("Item"))
                 {
-                    ComboSystem.Instance.OnItemCollected();
-                    //GameManager.Instance.AddScore(scoreValue);
-                    //GameManager.Instance.collectedItems++;
+                    Debug.Log(" Normal item collected!");
+
+                    // 콤보 시스템 처리
+                    if (ComboSystem.Instance != null)
+                    {
+                        ComboSystem.Instance.OnItemCollected();
+                    }
+
+                    // 점수 및 아이템 수집 처리
+                    GameManager.Instance.AddScore(scoreValue);
+                    GameManager.Instance.AddCollectedItem(); // 사운드 재생 포함
                 }
                 else if (gameObject.CompareTag("Obstacle"))
                 {
-                    GameManager.Instance.GameOver();
+                    Debug.Log(" Obstacle hit!");
+                        
+                }
+                else if (gameObject.CompareTag("Magnet"))  // 태그명 수정: MagnetItem → Magnet
+                {
+                    Debug.Log(" Magnet item collected!");
+
+                    // 자석 효과 활성화
+                    GameManager.Instance.ActivateMagnet();
+
+                    // 자석 아이템도 점수 제공
+                    GameManager.Instance.AddScore(scoreValue);
+                    GameManager.Instance.AddCollectedItem(); // 사운드 재생
+                }
+                else
+                {
+                    Debug.LogWarning($" Unknown item tag: {gameObject.tag}");
                 }
             }
+            else
+            {
+                Debug.LogError(" GameManager.Instance is null!");
+            }
 
-            // 이펙트 생성 (옵션)
+            // 이펙트 생성
             CreateEffect();
 
             // 오브젝트 삭제
@@ -437,12 +560,91 @@ public class ScoreItem : MonoBehaviour
 
     void CreateEffect()
     {
-        // 간단한 이펙트 (파티클이나 애니메이션 추가 가능)
-        GameObject effect = new GameObject("Effect");
+        // 간단한 이펙트 생성
+        GameObject effect = new GameObject("CollectionEffect");
         effect.transform.position = transform.position;
 
-        // 여기에 파티클 시스템이나 애니메이션 추가
+        // 아이템 타입에 따른 이펙트 색상 설정
+        if (gameObject.CompareTag("Magnet"))  // 태그명 수정
+        {
+            // 자석 아이템은 특별한 이펙트
+            CreateMagnetEffect(effect);
+        }
+        else
+        {
+            // 일반 아이템 이펙트
+            CreateNormalEffect(effect);
+        }
 
+        // 이펙트 자동 삭제
         Destroy(effect, 1f);
+    }
+
+    void CreateNormalEffect(GameObject effect)
+    {
+        // 일반 아이템 수집 이펙트
+        StartCoroutine(ScaleEffect(effect.transform));
+    }
+
+    void CreateMagnetEffect(GameObject effect)
+    {
+        // 자석 아이템 특별 이펙트
+        Debug.Log(" Creating magnet collection effect!");
+        StartCoroutine(MagnetScaleEffect(effect.transform));
+    }
+
+    System.Collections.IEnumerator ScaleEffect(Transform effectTransform)
+    {
+        Vector3 startScale = Vector3.zero;
+        Vector3 endScale = Vector3.one * 1.5f;
+        float duration = 0.3f;
+        float elapsed = 0f;
+
+        while (elapsed < duration)
+        {
+            elapsed += Time.deltaTime;
+            float t = elapsed / duration;
+            effectTransform.localScale = Vector3.Lerp(startScale, endScale, t);
+            yield return null;
+        }
+
+        // 페이드 아웃
+        while (elapsed < duration * 2)
+        {
+            elapsed += Time.deltaTime;
+            float t = (elapsed - duration) / duration;
+            effectTransform.localScale = Vector3.Lerp(endScale, Vector3.zero, t);
+            yield return null;
+        }
+    }
+
+    System.Collections.IEnumerator MagnetScaleEffect(Transform effectTransform)
+    {
+        Vector3 startScale = Vector3.zero;
+        Vector3 endScale = Vector3.one * 2f; // 자석은 더 크게
+        float duration = 0.5f; // 자석은 더 오래
+        float elapsed = 0f;
+
+        // 확대
+        while (elapsed < duration)
+        {
+            elapsed += Time.deltaTime;
+            float t = elapsed / duration;
+            effectTransform.localScale = Vector3.Lerp(startScale, endScale, t);
+
+            // 회전 효과 추가
+            effectTransform.Rotate(0, 0, 720 * Time.deltaTime);
+            yield return null;
+        }
+
+        // 페이드 아웃
+        while (elapsed < duration * 2)
+        {
+            elapsed += Time.deltaTime;
+            float t = (elapsed - duration) / duration;
+            effectTransform.localScale = Vector3.Lerp(endScale, Vector3.zero, t);
+            effectTransform.Rotate(0, 0, 360 * Time.deltaTime);
+            yield return null;
+        }
     }
 }

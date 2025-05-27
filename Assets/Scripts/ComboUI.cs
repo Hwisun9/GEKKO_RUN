@@ -216,7 +216,7 @@ public class ComboUI : MonoBehaviour
     {
         // ComboSystem과 동일한 계산 로직
         int baseScore = 10;
-        int[] bonuses = { 0, 5, 10, 15, 25 };
+        int[] bonuses = { 0, 10, 20, 30, 50 };
 
         int bonus = 0;
         if (comboCount <= bonuses.Length)
@@ -234,6 +234,12 @@ public class ComboUI : MonoBehaviour
         if (comboCount % 5 == 0)
         {
             totalScore += 50;
+        }
+
+        // 10콤보 특별 보너스
+        if (comboCount % 10 == 0)
+        {
+            totalScore += 100;
         }
 
         return totalScore;

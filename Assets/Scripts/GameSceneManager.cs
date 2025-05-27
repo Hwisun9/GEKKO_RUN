@@ -5,143 +5,233 @@ using TMPro;
 
 public class GameSceneManager : MonoBehaviour
 {
-    // 참조
+    [Header("UI References")]
     public TextMeshProUGUI scoreText;
     public TextMeshProUGUI itemCountText;
     public GameObject pausePanel;
+
+    [Header("Button References")]
     public Button pauseButton;
     public Button resumeButton;
     public Button restartButton;
     public Button mainMenuButton;
 
-    // 게임 상태
-    private bool isPaused = false;
+    [Header("Audio")]
+    public AudioSource buttonAudioSource;
+    public string backgroundMusicObjectName = "BackgroundMusic";
 
-    // 시작
+    // Game State
+    private bool isPaused = false;
+    private AudioSource backgroundMusicSource;
+
     void Start()
     {
-        // 게임 초기화
-        GameManager.Instance.StartGame();
+        InitializeGame();
+        SetupUI();
+        SetupAudio();
+    }
 
-        // 패널 초기 상태
-        pausePanel.SetActive(false);
+    void Update()
+    {
+        UpdateUI();
+        HandleInput();
+    }
 
-        // 버튼 리스너 설정
-        pauseButton.onClick.AddListener(TogglePause);
-        resumeButton.onClick.AddListener(TogglePause);
-        restartButton.onClick.AddListener(RestartGame);
-        mainMenuButton.onClick.AddListener(GoToMainMenu);
+    private void InitializeGame()
+    {
+        // GameManager 확인
+        if (GameManager.Instance == null)
+        {
+            Debug.LogError("GameManager instance not found!");
+            return;
+        }
 
-        // 배경 음악 재생
-        StartBackgroundMusic();
-
-        // UI 초기화
-        UpdateScoreUI();
-        UpdateItemCountUI();
-
-        //게임 시작
+        // 게임 시작 (한 번만 호출)
         GameManager.Instance.StartGame();
     }
 
-    // 업데이트
-    void Update()
+    private void SetupUI()
     {
-        // 게임이 활성화 상태일 때만 UI 업데이트
-        if (GameManager.Instance.isGameActive && !isPaused)
+        // 패널 초기 상태
+        if (pausePanel != null)
+        {
+            pausePanel.SetActive(false);
+        }
+
+        // 버튼 리스너 설정 (null 체크 포함)
+        SetupButtonListeners();
+
+        // 초기 UI 업데이트
+        UpdateUI();
+    }
+
+    private void SetupButtonListeners()
+    {
+        if (pauseButton != null)
+            pauseButton.onClick.AddListener(TogglePause);
+        else
+            Debug.LogWarning("Pause button not assigned!");
+
+        if (resumeButton != null)
+            resumeButton.onClick.AddListener(TogglePause);
+        else
+            Debug.LogWarning("Resume button not assigned!");
+
+        if (restartButton != null)
+            restartButton.onClick.AddListener(RestartGame);
+        else
+            Debug.LogWarning("Restart button not assigned!");
+
+        if (mainMenuButton != null)
+            mainMenuButton.onClick.AddListener(GoToMainMenu);
+        else
+            Debug.LogWarning("Main menu button not assigned!");
+    }
+
+    private void SetupAudio()
+    {
+        // 배경 음악 설정
+        StartBackgroundMusic();
+    }
+
+    private void UpdateUI()
+    {
+        // 게임이 활성화 상태이고 일시정지가 아닐 때만 UI 업데이트
+        if (GameManager.Instance != null && GameManager.Instance.isGameActive && !isPaused)
         {
             UpdateScoreUI();
             UpdateItemCountUI();
         }
+    }
 
-        // 뒤로 가기 버튼 처리 (안드로이드)
+    private void HandleInput()
+    {
+        // ESC 키 또는 뒤로 가기 버튼 처리
         if (Input.GetKeyDown(KeyCode.Escape))
         {
             TogglePause();
         }
     }
 
-    // 일시정지 토글
     void TogglePause()
     {
-        isPaused = !isPaused;
-        pausePanel.SetActive(isPaused);
+        if (GameManager.Instance == null || !GameManager.Instance.isGameActive) return;
 
-        // 게임 시간 제어
+        isPaused = !isPaused;
+
+        // UI 상태 변경
+        if (pausePanel != null)
+        {
+            pausePanel.SetActive(isPaused);
+        }
+
+        // 시간 제어
         Time.timeScale = isPaused ? 0f : 1f;
 
         // 효과음 재생
         PlayButtonSound();
     }
 
-    // 게임 재시작
     void RestartGame()
     {
-        // 일시정지 해제
-        Time.timeScale = 1f;
+        // 시간과 오디오 복원
+        RestoreTimeAndAudio();
 
-        // 현재 씬 다시 로드
-        SceneManager.LoadScene(SceneManager.GetActiveScene().name);
+        // 씬 재시작
+        string currentScene = SceneManager.GetActiveScene().name;
+        SceneManager.LoadScene(currentScene);
     }
 
-    // 메인 메뉴로 이동
     void GoToMainMenu()
     {
-        // 일시정지 해제
-        Time.timeScale = 1f;
+        // 시간과 오디오 복원
+        RestoreTimeAndAudio();
 
-        // 메인 메뉴 씬 로드
+        // 메인 메뉴로 이동
         SceneManager.LoadScene("StartScene");
     }
 
-    // 점수 UI 업데이트
-    void UpdateScoreUI()
+    private void RestoreTimeAndAudio()
     {
-        scoreText.text = "점수: " + GameManager.Instance.score;
-    }
+        Time.timeScale = 1f;
 
-    // 아이템 카운트 UI 업데이트
-    void UpdateItemCountUI()
-    {
-        itemCountText.text = "아이템: " + GameManager.Instance.collectedItems;
-    }
-
-    // 버튼 사운드 재생
-    void PlayButtonSound()
-    {
-        GetComponent<AudioSource>().Play();
-    }
-
-    // 배경 음악 재생
-    void StartBackgroundMusic()
-    {
-        AudioSource bgm = GameObject.Find("BackgroundMusic").GetComponent<AudioSource>();
-        if (bgm != null && !bgm.isPlaying)
+        if (backgroundMusicSource != null)
         {
-            bgm.Play();
+            backgroundMusicSource.pitch = 1f;
+            backgroundMusicSource.volume = 1f;
         }
     }
 
-    // 게임 오버 호출
+    private void UpdateScoreUI()
+    {
+        if (scoreText != null && GameManager.Instance != null)
+        {
+            scoreText.text = "점수: " + GameManager.Instance.score.ToString();
+        }
+    }
+
+    private void UpdateItemCountUI()
+    {
+        if (itemCountText != null && GameManager.Instance != null)
+        {
+            itemCountText.text = "아이템: " + GameManager.Instance.collectedItems.ToString();
+        }
+    }
+
+    private void PlayButtonSound()
+    {
+        if (buttonAudioSource != null)
+        {
+            buttonAudioSource.Play();
+        }
+        else
+        {
+            // 컴포넌트에서 AudioSource 찾기
+            AudioSource audioSource = GetComponent<AudioSource>();
+            if (audioSource != null)
+            {
+                audioSource.Play();
+            }
+        }
+    }
+
+    private void StartBackgroundMusic()
+    {
+        // 이름으로 배경음악 오브젝트 찾기
+        GameObject bgmObject = GameObject.Find(backgroundMusicObjectName);
+        if (bgmObject != null)
+        {
+            backgroundMusicSource = bgmObject.GetComponent<AudioSource>();
+            if (backgroundMusicSource != null && !backgroundMusicSource.isPlaying)
+            {
+                backgroundMusicSource.Play();
+            }
+        }
+        else
+        {
+            Debug.LogWarning($"Background music object '{backgroundMusicObjectName}' not found!");
+        }
+    }
+
+    // 외부에서 게임오버를 호출할 때 사용
     public void TriggerGameOver()
     {
-        // 게임 오버 상태로 설정
-        GameManager.Instance.GameOver();
-
-        // 최고 점수 저장
-        int currentHighScore = PlayerPrefs.GetInt("HighScore", 0);
-        if (GameManager.Instance.score > currentHighScore)
+        if (GameManager.Instance != null)
         {
-            PlayerPrefs.SetInt("HighScore", GameManager.Instance.score);
-            PlayerPrefs.Save();
+            GameManager.Instance.GameOver();
         }
-
-        // 지연 후 게임 오버 씬으로 전환
-        Invoke("LoadGameOverScene", 1.5f);
+        else
+        {
+            Debug.LogError("Cannot trigger game over - GameManager instance not found!");
+        }
     }
 
-    // 게임 오버 씬 로드
-    void LoadGameOverScene()
+    void OnDestroy()
     {
-        SceneManager.LoadScene("GameOverScene");
+        // 버튼 리스너 해제 (메모리 누수 방지)
+        if (pauseButton != null) pauseButton.onClick.RemoveAllListeners();
+        if (resumeButton != null) resumeButton.onClick.RemoveAllListeners();
+        if (restartButton != null) restartButton.onClick.RemoveAllListeners();
+        if (mainMenuButton != null) mainMenuButton.onClick.RemoveAllListeners();
     }
 }
