@@ -7,11 +7,13 @@ public class ComboSystem : MonoBehaviour
     [Header("콤보 설정")]
     public float comboTimeLimit = 3f; // 콤보 제한시간
     public int specialComboCount = 5; // 특별 보너스 콤보 수
+    public int boosterComboCount = 10; //  부스터 발동 콤보 수
 
     [Header("점수 설정")]
     public int baseItemScore = 10;
     public int[] comboBonus = { 0, 10, 20, 30, 50 }; // 콤보별 추가 점수
     public int specialComboBonus = 50; // 5콤보 특별 보너스
+    public int boosterComboBonus = 100; //  10콤보 부스터 보너스
 
     // 현재 상태
     private int currentCombo = 0;
@@ -22,6 +24,7 @@ public class ComboSystem : MonoBehaviour
     public System.Action<int> OnComboChanged; // 콤보 변경 시
     public System.Action<int> OnComboAchieved; // 특정 콤보 달성 시
     public System.Action OnComboReset; // 콤보 리셋 시
+    public System.Action OnBoosterTriggered; //  부스터 발동 시
 
     public static ComboSystem Instance;
 
@@ -42,7 +45,6 @@ public class ComboSystem : MonoBehaviour
         if (isComboActive)
         {
             comboTimer -= Time.deltaTime;
-
             if (comboTimer <= 0f)
             {
                 ResetCombo();
@@ -67,8 +69,13 @@ public class ComboSystem : MonoBehaviour
 
         Debug.Log($"콤보: {currentCombo}, 획득 점수: {totalScore}");
 
+        //  10콤보 부스터 체크
+        if (currentCombo == boosterComboCount)
+        {
+            TriggerBooster();
+        }
         // 5콤보 달성 시 특별 처리
-        if (currentCombo % specialComboCount == 0)
+        else if (currentCombo % specialComboCount == 0)
         {
             OnSpecialComboAchieved();
         }
@@ -88,13 +95,45 @@ public class ComboSystem : MonoBehaviour
             score += comboBonus[comboBonus.Length - 1]; // 최대 보너스
         }
 
+        //  10콤보 부스터 보너스
+        if (currentCombo == boosterComboCount)
+        {
+            score += boosterComboBonus;
+        }
         // 5콤보 특별 보너스
-        if (currentCombo % specialComboCount == 0)
+        else if (currentCombo % specialComboCount == 0)
         {
             score += specialComboBonus;
         }
 
         return score;
+    }
+
+    //  부스터 발동
+    void TriggerBooster()
+    {
+        Debug.Log($" {boosterComboCount}콤보 달성! 부스터 발동!");
+
+        // BoosterSystem에 부스터 활성화 요청
+        BoosterSystem boosterSystem = FindObjectOfType<BoosterSystem>();
+        if (boosterSystem != null)
+        {
+            boosterSystem.ActivateBooster();
+        }
+        else
+        {
+            Debug.LogWarning("BoosterSystem not found!");
+        }
+
+        // 이벤트 발생
+        OnBoosterTriggered?.Invoke();
+
+        // 특별 효과 (번쩍임, 사운드 등)
+        if (GameManager.Instance != null)
+        {
+            // 황금색 번쩍임 효과
+            GameManager.Instance.TriggerFlashEffect(Color.yellow, 0.3f);
+        }
     }
 
     void OnSpecialComboAchieved()
@@ -114,7 +153,6 @@ public class ComboSystem : MonoBehaviour
         currentCombo = 0;
         comboTimer = 0f;
         isComboActive = false;
-
         OnComboChanged?.Invoke(currentCombo);
     }
 
@@ -122,4 +160,5 @@ public class ComboSystem : MonoBehaviour
     public int GetCurrentCombo() => currentCombo;
     public float GetComboTimeLeft() => comboTimer;
     public float GetComboTimeRatio() => comboTimer / comboTimeLimit;
+    public bool IsBoosterComboReached() => currentCombo >= boosterComboCount; // 
 }

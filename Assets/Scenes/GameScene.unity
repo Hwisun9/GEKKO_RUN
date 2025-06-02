@@ -549,51 +549,80 @@ MonoBehaviour:
     speedMultiplier: 0.3
     scoreValue: 50
     effectColor: {r: 0.10902455, g: 0.9245283, b: 0.68632555, a: 0}
+    spawnChance: 1
   - prefab: {fileID: 5864968732298219056, guid: 7ffedadaaf9131143afde8b897b05e55, type: 3}
-    spawnWeight: 0.8
+    spawnWeight: 1
     itemType: 0
     speedMultiplier: 0.3
     scoreValue: 100
     effectColor: {r: 0.3568441, g: 0.9339623, b: 0.41972217, a: 0}
+    spawnChance: 1
   - prefab: {fileID: 5410732150586343844, guid: 659774483580a484780495e4dbc0a98f, type: 3}
-    spawnWeight: 0.7
+    spawnWeight: 1
     itemType: 0
     speedMultiplier: 0.3
     scoreValue: 150
     effectColor: {r: 0.3346725, g: 0.9433962, b: 0.004449993, a: 0}
-  - prefab: {fileID: 5803928946863272384, guid: c7ad1679d89006443aaaa6b64a2b1a7a, type: 3}
-    spawnWeight: 0.4
-    itemType: 1
-    speedMultiplier: 0.3
-    scoreValue: 0
-    effectColor: {r: 0.990566, g: 0.85946035, b: 0.16353682, a: 0}
+    spawnChance: 1
   - prefab: {fileID: 4345484632863524560, guid: 91c31a367593e914981b1c0bd9464b3a, type: 3}
     spawnWeight: 0.5
     itemType: 1
     speedMultiplier: 0.3
     scoreValue: 0
     effectColor: {r: 0.08597367, g: 0.5417346, b: 0.7924528, a: 0}
+    spawnChance: 1
   - prefab: {fileID: 8010213800343691143, guid: dfd07922fa8dc8848bb26c1daafcf91a, type: 3}
-    spawnWeight: 0.3
+    spawnWeight: 0.5
     itemType: 1
     speedMultiplier: 0.3
     scoreValue: 0
     effectColor: {r: 0.9339623, g: 0.15419187, b: 0.15419187, a: 0}
+    spawnChance: 1
+  - prefab: {fileID: 5803928946863272384, guid: c7ad1679d89006443aaaa6b64a2b1a7a, type: 3}
+    spawnWeight: 0.3
+    itemType: 1
+    speedMultiplier: 0.3
+    scoreValue: 0
+    effectColor: {r: 0.15294114, g: 0.4160739, b: 0.93333334, a: 0}
+    spawnChance: 1
   - prefab: {fileID: 3718876193602839523, guid: ac3e1d591b223bd46b90f3df2d3e6993, type: 3}
-    spawnWeight: 1.5
+    spawnWeight: 0.02
     itemType: 2
     speedMultiplier: 0.3
     scoreValue: 0
     effectColor: {r: 0.15294114, g: 0.4160739, b: 0.93333334, a: 0}
+    spawnChance: 0.1
+  - prefab: {fileID: 209451037806443669, guid: 9ad9929efd2a3764b97877e394707162, type: 3}
+    spawnWeight: 0.02
+    itemType: 3
+    speedMultiplier: 0.3
+    scoreValue: 0
+    effectColor: {r: 0.15294114, g: 0.4160739, b: 0.93333334, a: 0}
+    spawnChance: 0.1
+  - prefab: {fileID: 739321148476768390, guid: 790496fb52a06f3438d6d288853bca3d, type: 3}
+    spawnWeight: 0.02
+    itemType: 4
+    speedMultiplier: 0.3
+    scoreValue: 0
+    effectColor: {r: 0.15294114, g: 0.4160739, b: 0.93333334, a: 0}
+    spawnChance: 0.1
   spawnRangeX: 2.5
   spawnPositionY: 6
   baseSpawnSpeed: 3
+  maxSpawnAttempts: 15
+  activeObjectTrackTime: 3
+  colliderPadding: 0.5
+  showSpawnDebug: 0
+  spawnCheckLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
   waves:
   - waveName: 
     duration: 0
     spawnInterval: 0
     itemChance: 0
     magnetChance: 0.05
+    buffItemChance: 0.08
     speedMultiplier: 0
     availableItems: []
   useWaveSystem: 0
@@ -601,7 +630,9 @@ MonoBehaviour:
   maxDifficultyMultiplier: 3
   enableSpecialPatterns: 1
   specialPatternChance: 0.1
-  magnetItemChance: 0.1
+  magnetItemChance: 0.01
+  mushroomItemChance: 0.01
+  hideItemChance: 0.01
 --- !u!1 &284385763
 GameObject:
   m_ObjectHideFlags: 0
@@ -1228,7 +1259,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 431, y: -1539}
+  m_AnchoredPosition: {x: 432, y: 94}
   m_SizeDelta: {x: 200, y: 50}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &463837161
@@ -1281,11 +1312,11 @@ MonoBehaviour:
   m_fontSize: 36
   m_fontSizeBase: 36
   m_fontWeight: 400
-  m_enableAutoSizing: 0
+  m_enableAutoSizing: 1
   m_fontSizeMin: 18
   m_fontSizeMax: 72
   m_fontStyle: 0
-  m_HorizontalAlignment: 1
+  m_HorizontalAlignment: 2
   m_VerticalAlignment: 256
   m_textAlignment: 65535
   m_characterSpacing: 0
@@ -1361,9 +1392,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   comboTimeLimit: 3
   specialComboCount: 5
+  boosterComboCount: 10
   baseItemScore: 10
   comboBonus: 000000000a000000140000001e00000032000000
   specialComboBonus: 50
+  boosterComboBonus: 100
 --- !u!4 &476087402
 Transform:
   m_ObjectHideFlags: 0
@@ -2354,13 +2387,26 @@ MonoBehaviour:
   currentLives: 3
   livesText: {fileID: 660526775}
   destroySkillCooldown: 30
-  magnetDuration: 3.5
-  magnetRange: 2
+  magnetDuration: 5
+  magnetRange: 3
+  destroySkillKey: 32
+  enableKeyboardInput: 1
   scoreText: {fileID: 1453729638}
   playTimeDisplayText: {fileID: 847956965}
   destroySkillButton: {fileID: 1242899639}
   destroySkillCooldownText: {fileID: 463837161}
+  flashPanel: {fileID: 0}
+  flashColor: {r: 1, g: 1, b: 1, a: 1}
+  flashDuration: 0.1
   magnetEffectUI: {fileID: 1577522092}
+  shrinkDuration: 8
+  shrinkScale: 0.3
+  hideDuration: 6
+  hideAlpha: 0.2
+  shrinkBuffUI: {fileID: 0}
+  hideBuffUI: {fileID: 0}
+  shrinkTimerText: {fileID: 0}
+  hideTimerText: {fileID: 0}
   comboPanel: {fileID: 160444700}
   comboText: {fileID: 1720605539}
   comboScoreText: {fileID: 351940268}
@@ -2368,7 +2414,7 @@ MonoBehaviour:
   bgm: {fileID: 1110231626}
   itemCollectSound: {fileID: 8300000, guid: 39aa63bd689ea4b43926fd59e665736b, type: 3}
   hitSound: {fileID: 8300000, guid: f19646e7bc53adc429ff3833da7153e3, type: 3}
-  skillActivateSound: {fileID: 8300000, guid: 3c52f282de8995f48bcb31f5792499e2, type: 3}
+  skillActivateSound: {fileID: 8300000, guid: 2afe55d4da011f34e980637ee658510a, type: 3}
   sfxAudioSource: {fileID: 1110231626}
   gameOverSlowDownDuration: 3
   finalTimeScale: 0.1
@@ -2542,8 +2588,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 407, y: -1447}
-  m_SizeDelta: {x: 120, y: 120}
+  m_AnchoredPosition: {x: 436, y: 187}
+  m_SizeDelta: {x: 130.2263, y: 124.6262}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1242899639
 MonoBehaviour:
@@ -2609,8 +2655,8 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 10905, guid: 0000000000000000f000000000000000, type: 0}
-  m_Type: 1
+  m_Sprite: {fileID: -2613247888821195678, guid: 05248906e9e2ff949a896f8b40f780c0, type: 3}
+  m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1
   m_FillMethod: 4
@@ -3337,6 +3383,10 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 7375993568002088775, guid: 253ed7d6cb2a5b548a28b54fcee81052, type: 3}
+      propertyPath: moveSpeed
+      value: 7
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -3725,6 +3775,57 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1720605537}
   m_CullTransparentMesh: 1
+--- !u!1 &1750545536
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1750545538}
+  - component: {fileID: 1750545537}
+  m_Layer: 0
+  m_Name: BoosterSystem
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1750545537
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1750545536}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: acdc73ca952bff442be15950a821135d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  boosterDuration: 10
+  speedMultiplier: 2
+  boosterColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
+  flashInterval: 0.5
+  boosterStartSound: {fileID: 0}
+  boosterEndSound: {fileID: 0}
+  obstacleDestroySound: {fileID: 0}
+--- !u!4 &1750545538
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1750545536}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -1.232107, y: 0.25179416, z: -0.12643522}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1879117333
 GameObject:
   m_ObjectHideFlags: 0
@@ -3922,7 +4023,7 @@ MonoBehaviour:
   maxGrabInterval: 6
   warningDuration: 1.5
   handGrabDuration: 1
-  handMoveSpeed: 5
+  handMoveSpeed: 10
   adjustWithDifficulty: 1
   minIntervalAtMaxDifficulty: 1.5
 --- !u!1 &1983676694
@@ -3968,7 +4069,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: 0, y: -0.000061035156}
+  m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1983676696
@@ -4110,7 +4211,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: DESTROY
+  m_text: 
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
@@ -4447,3 +4548,4 @@ SceneRoots:
   - {fileID: 989643572}
   - {fileID: 1918296013}
   - {fileID: 476087402}
+  - {fileID: 1750545538}

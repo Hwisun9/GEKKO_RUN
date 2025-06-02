@@ -5,7 +5,7 @@ public class MagnetEffectUI : MonoBehaviour
 {
     [Header("Effect Settings")]
     public GameObject magnetRingPrefab;      // 자석 링 이펙트 프리팹
-    public float effectRadius = 3f;          // 이펙트 반경
+    public float effectRadius = 1f;          // 이펙트 반경
     public float rotationSpeed = 20f;        // 회전 속도
     public float pulseSpeed = 2f;            // 맥동 속도
     public float minScale = 0.8f;            // 최소 크기

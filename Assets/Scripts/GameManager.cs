@@ -1,7 +1,8 @@
-// GameManager.cs - 자석 이펙트 오류 수정
+// GameManager.cs - 화면 번쩍임 효과 추가
 using TMPro;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using UnityEngine.UI;
 using System.Collections;
 
 public class GameManager : MonoBehaviour
@@ -28,15 +29,48 @@ public class GameManager : MonoBehaviour
     private bool isMagnetActive = false;
     private float magnetTimer = 0f;
 
+    [Header("Input Settings")]
+    public KeyCode destroySkillKey = KeyCode.Space;
+    public bool enableKeyboardInput = true;
+
     [Header("UI Elements")]
     public TextMeshProUGUI scoreText;
     public TextMeshProUGUI playTimeDisplayText;
     public UnityEngine.UI.Button destroySkillButton;
     public TextMeshProUGUI destroySkillCooldownText;
 
+    [Header("Flash Effect")]
+    public Image flashPanel; // 번쩍임 효과용 이미지 패널
+    public Color flashColor = Color.white; // 번쩍임 색상
+    public float flashDuration = 0.05f; // 번쩍임 지속시간
+
     [Header("Magnet Effect")]
-    public MagnetEffectUI magnetEffectUI;  // MagnetEffectUI 컴포넌트 직접 참조
-                                           // 또는 GameObject를 사용하려면: public GameObject magnetEffectObject;
+    public MagnetEffectUI magnetEffectUI;
+
+    [Header("Buff Effects")]
+    public float shrinkDuration = 8f; // 작아지는 효과 지속시간
+    public float shrinkScale = 0.1f; // 작아지는 비율 (0.6 = 60% 크기)
+    public float hideDuration = 6f; // 투명화 효과 지속시간
+    public float hideAlpha = 0.2f; // 투명도 (0.3 = 30% 불투명)
+
+    // 버프 상태 변수들
+    private bool isShrinkActive = false;
+    private float shrinkTimer = 0f;
+    private bool isHideActive = false;
+    private float hideTimer = 0f;
+
+    // 플레이어 관련 참조
+    private SpriteRenderer playerSpriteRenderer;
+    private Collider2D playerCollider;
+    private Vector3 originalPlayerScale;
+    private Color originalPlayerColor;
+
+    // 버프 UI 참조 (선택사항)
+    [Header("Buff UI")]
+    public GameObject shrinkBuffUI;
+    public GameObject hideBuffUI;
+    public TextMeshProUGUI shrinkTimerText;
+    public TextMeshProUGUI hideTimerText;
 
     [Header("Combo UI Elements")]
     public GameObject comboPanel;
@@ -80,6 +114,7 @@ public class GameManager : MonoBehaviour
     void Start()
     {
         InitializeGame();
+        InitializeFlashEffect();
     }
 
     void Update()
@@ -89,6 +124,9 @@ public class GameManager : MonoBehaviour
             UpdatePlayTime();
             UpdateSkills();
             UpdateMagnetEffect();
+            UpdateShrinkEffect();
+            UpdateHideEffect();
+            HandleInput();
         }
     }
 
@@ -112,6 +150,9 @@ public class GameManager : MonoBehaviour
         if (player != null)
         {
             playerTransform = player.transform;
+            playerSpriteRenderer = player.GetComponent<SpriteRenderer>();
+            playerCollider = player.GetComponent<Collider2D>();
+            originalPlayerScale = playerTransform.localScale;
         }
 
         if (destroySkillButton != null)
@@ -119,34 +160,360 @@ public class GameManager : MonoBehaviour
             destroySkillButton.onClick.AddListener(UseDestroySkill);
         }
 
+        if (playerSpriteRenderer != null)
+        {
+            originalPlayerColor = playerSpriteRenderer.color;
+        }
+
         StartGame();
     }
 
+    // 번쩍임 효과 초기화
+    private void InitializeFlashEffect()
+    {
+        if (flashPanel == null)
+        {
+            // 자동으로 번쩍임 패널 생성
+            CreateFlashPanel();
+        }
+        else
+        {
+            // 기존 패널이 있으면 초기 설정
+            SetupFlashPanel();
+        }
+    }
+
+    // 번쩍임 패널 자동 생성
+    private void CreateFlashPanel()
+    {
+        // Canvas 찾기
+        Canvas canvas = FindObjectOfType<Canvas>();
+        if (canvas == null)
+        {
+            Debug.LogWarning("Canvas not found! Flash effect will not work.");
+            return;
+        }
+
+        // 번쩍임 패널 생성
+        GameObject flashObject = new GameObject("FlashPanel");
+        flashObject.transform.SetParent(canvas.transform, false);
+
+        // Image 컴포넌트 추가
+        flashPanel = flashObject.AddComponent<Image>();
+
+        // RectTransform 설정 (전체 화면)
+        RectTransform rectTransform = flashObject.GetComponent<RectTransform>();
+        rectTransform.anchorMin = Vector2.zero;
+        rectTransform.anchorMax = Vector2.one;
+        rectTransform.sizeDelta = Vector2.zero;
+        rectTransform.anchoredPosition = Vector2.zero;
+
+        SetupFlashPanel();
+
+        Debug.Log("Flash panel created automatically");
+    }
+
+    // 번쩍임 패널 설정
+    private void SetupFlashPanel()
+    {
+        if (flashPanel == null) return;
+
+        // 색상 설정
+        flashPanel.color = new Color(flashColor.r, flashColor.g, flashColor.b, 0f);
+
+        // 가장 앞에 표시되도록 설정
+        flashPanel.transform.SetAsLastSibling();
+
+        // Raycast Target 비활성화 (클릭 방해 방지)
+        flashPanel.raycastTarget = false;
+
+        Debug.Log("Flash panel setup completed");
+    }
+
+    private void HandleInput()
+    {
+        if (!enableKeyboardInput) return;
+
+        if (Input.GetKeyDown(destroySkillKey))
+        {
+            Debug.Log("Destroy skill key pressed!");
+            UseDestroySkill();
+        }
+    }
+
+    private void UpdateShrinkEffect()
+    {
+        if (!isShrinkActive) return;
+
+        shrinkTimer -= Time.deltaTime;
+
+        // UI 업데이트
+        if (shrinkTimerText != null)
+        {
+            shrinkTimerText.text = Mathf.Ceil(shrinkTimer).ToString();
+        }
+
+        if (shrinkTimer <= 0)
+        {
+            DeactivateShrink();
+        }
+    }
+
+    private void UpdateHideEffect()
+    {
+        if (!isHideActive) return;
+
+        hideTimer -= Time.deltaTime;
+
+        // UI 업데이트
+        if (hideTimerText != null)
+        {
+            hideTimerText.text = Mathf.Ceil(hideTimer).ToString();
+        }
+
+        if (hideTimer <= 0)
+        {
+            DeactivateHide();
+        }
+    }
+
+    // 작아지는 효과 활성화
+    public void ActivateShrink()
+    {
+        Debug.Log("Shrink effect activated!");
+
+        if (isShrinkActive)
+        {
+            // 이미 활성화된 경우 시간 연장
+            shrinkTimer += shrinkDuration;
+            Debug.Log("Shrink effect extended! New duration: " + shrinkTimer);
+        }
+        else
+        {
+            // 새로 활성화
+            isShrinkActive = true;
+            shrinkTimer = shrinkDuration;
+
+            if (playerTransform != null)
+            {
+                playerTransform.localScale = originalPlayerScale * shrinkScale;
+            }
+
+            // UI 활성화
+            if (shrinkBuffUI != null)
+            {
+                shrinkBuffUI.SetActive(true);
+            }
+
+            Debug.Log("Player shrunk to " + shrinkScale + " size for " + shrinkDuration + " seconds");
+        }
+
+        PlaySFX(skillActivateSound);
+
+        // 번쩍임 효과 (푸른색으로)
+        //TriggerFlashEffect(Color.cyan, 0.1f);
+    }
+
+    // 작아지는 효과 비활성화
+    private void DeactivateShrink()
+    {
+        isShrinkActive = false;
+        shrinkTimer = 0f;
+
+        if (playerTransform != null)
+        {
+            playerTransform.localScale = originalPlayerScale;
+        }
+
+        // UI 비활성화
+        if (shrinkBuffUI != null)
+        {
+            shrinkBuffUI.SetActive(false);
+        }
+
+        Debug.Log("Shrink effect ended - Player size restored");
+    }
+
+    // 투명화 효과 활성화
+    public void ActivateHide()
+    {
+        Debug.Log("Hide effect activated!");
+
+        if (isHideActive)
+        {
+            // 이미 활성화된 경우 시간 연장
+            hideTimer += hideDuration;
+            Debug.Log("Hide effect extended! New duration: " + hideTimer);
+        }
+        else
+        {
+            // 새로 활성화
+            isHideActive = true;
+            hideTimer = hideDuration;
+
+            if (playerSpriteRenderer != null)
+            {
+                Color newColor = originalPlayerColor;
+                newColor.a = hideAlpha;
+                playerSpriteRenderer.color = newColor;
+            }
+
+            // 충돌 비활성화 (장애물과의 충돌만)
+            if (playerCollider != null)
+            {
+                // 레이어나 태그를 이용해서 장애물과의 충돌만 비활성화
+                // 또는 PlayerController에서 충돌 처리를 수정해야 함
+            }
+
+            // UI 활성화
+            if (hideBuffUI != null)
+            {
+                hideBuffUI.SetActive(true);
+            }
+
+            Debug.Log("Player hidden for " + hideDuration + " seconds");
+        }
+
+        PlaySFX(skillActivateSound);
+
+        // 번쩍임 효과 (보라색으로)
+        //TriggerFlashEffect(Color.magenta, 0.1f);
+    }
+
+    // 투명화 효과 비활성화
+    private void DeactivateHide()
+    {
+        isHideActive = false;
+        hideTimer = 0f;
+
+        if (playerSpriteRenderer != null)
+        {
+            playerSpriteRenderer.color = originalPlayerColor;
+        }
+
+        // 충돌 활성화
+        if (playerCollider != null)
+        {
+            // 충돌 복원
+        }
+
+        // UI 비활성화
+        if (hideBuffUI != null)
+        {
+            hideBuffUI.SetActive(false);
+        }
+
+        Debug.Log("Hide effect ended - Player visible again");
+    }
+
     public void StartGame()
+    {
+        // 진행 중인 게임오버 처리 중단
+        StopGameOverProcess();
+
+        // 게임 상태 초기화
+        InitializeGameState();
+
+        // 플레이어 능력 초기화
+        ResetPlayerAbilities();
+
+        // 버프 효과 초기화
+        ResetBuffEffects();
+
+        // 부스터 효과 초기화
+        ResetBoosterEffects();
+
+        // UI 및 오디오 설정
+        SetupUIAndAudio();
+
+        // 디버그 로그
+        LogGameStartInfo();
+    }
+
+    private void StopGameOverProcess()
     {
         if (gameOverCoroutine != null)
         {
             StopCoroutine(gameOverCoroutine);
             gameOverCoroutine = null;
         }
+    }
 
+    private void InitializeGameState()
+    {
         isGameActive = true;
         isGameOverInProgress = false;
         score = 0;
         collectedItems = 0;
         playTime = 0f;
         currentLives = maxLives;
+        gameStartTime = Time.realtimeSinceStartup;
+    }
+
+    private void ResetPlayerAbilities()
+    {
+        // 스킬 초기화
         destroySkillTimer = 0f;
+
+        // 마그넷 효과 초기화
+        if (isMagnetActive)
+        {
+            DeactivateMagnet();
+        }
         isMagnetActive = false;
         magnetTimer = 0f;
-        gameStartTime = Time.realtimeSinceStartup;
+    }
 
+    private void ResetBuffEffects()
+    {
+        // 작아지기 효과 초기화
+        if (isShrinkActive)
+        {
+            DeactivateShrink();
+        }
+
+        // 투명화 효과 초기화
+        if (isHideActive)
+        {
+            DeactivateHide();
+        }
+    }
+
+    //  부스터 효과 초기화
+    private void ResetBoosterEffects()
+    {
+        // 부스터 시스템 초기화
+        if (BoosterSystem.Instance != null)
+        {
+            BoosterSystem.Instance.ResetBooster();
+        }
+
+        // 콤보 시스템 초기화
+        if (ComboSystem.Instance != null)
+        {
+            ComboSystem.Instance.ResetCombo();
+        }
+    }
+
+    private void SetupUIAndAudio()
+    {
+        // UI 업데이트 및 설정
         UpdateAllUI();
         HideGameOverPanel();
         ShowComboUI(true);
-        ResetTimeAndAudio();
 
-        Debug.Log("Game Started - All systems initialized");
+        // 오디오 및 시간 설정 복원
+        ResetTimeAndAudio();
+    }
+
+    private void LogGameStartInfo()
+    {
+        Debug.Log($"Game Started - Lives: {currentLives}");
+
+        if (enableKeyboardInput)
+        {
+            Debug.Log($"Press {destroySkillKey} to use destroy skill!");
+        }
     }
 
     private void UpdatePlayTime()
@@ -173,6 +540,8 @@ public class GameManager : MonoBehaviour
         if (playerTransform != null)
         {
             GameObject[] items = GameObject.FindGameObjectsWithTag("Item");
+            int itemsAffected = 0;
+
             foreach (GameObject item in items)
             {
                 float distance = Vector2.Distance(playerTransform.position, item.transform.position);
@@ -180,7 +549,25 @@ public class GameManager : MonoBehaviour
                 {
                     Vector2 direction = (playerTransform.position - item.transform.position).normalized;
                     item.transform.Translate(direction * 8f * Time.deltaTime);
+                    itemsAffected++;
                 }
+            }
+
+            GameObject[] magnetItems = GameObject.FindGameObjectsWithTag("Magnet");
+            foreach (GameObject magnetItem in magnetItems)
+            {
+                float distance = Vector2.Distance(playerTransform.position, magnetItem.transform.position);
+                if (distance <= magnetRange)
+                {
+                    Vector2 direction = (playerTransform.position - magnetItem.transform.position).normalized;
+                    magnetItem.transform.Translate(direction * 8f * Time.deltaTime);
+                    itemsAffected++;
+                }
+            }
+
+            if (itemsAffected > 0 && Time.frameCount % 60 == 0)
+            {
+                Debug.Log("Magnet pulling " + itemsAffected + " items");
             }
         }
 
@@ -190,34 +577,36 @@ public class GameManager : MonoBehaviour
         }
     }
 
-    //  라이프 시스템
     public void TakeDamage()
     {
         if (!isGameActive || isGameOverInProgress) return;
+
+        Debug.Log("TakeDamage - Before: Lives = " + currentLives);
 
         currentLives--;
         PlaySFX(hitSound);
         UpdateLivesUI();
 
-        Debug.Log($"Lives remaining: {currentLives}");
+        Debug.Log("TakeDamage - After: Lives = " + currentLives);
 
         if (currentLives <= 0)
         {
+            Debug.Log("Game Over triggered");
             GameOver();
         }
         else
         {
+            Debug.Log("Lives remaining: " + currentLives);
             StartCoroutine(DamageEffect());
         }
     }
 
     private IEnumerator DamageEffect()
     {
-        yield return new WaitForSeconds(0.1f);
+        yield return new WaitForSeconds(0.5f);
         Debug.Log("Damage effect completed");
     }
 
-    //  사운드 시스템
     public void PlayItemCollectSound()
     {
         PlaySFX(itemCollectSound);
@@ -231,14 +620,30 @@ public class GameManager : MonoBehaviour
         }
     }
 
-    //  파괴 스킬
+    // 파괴 스킬 - 번쩍임 효과 추가
     public void UseDestroySkill()
     {
-        if (destroySkillTimer > 0 || !isGameActive) return;
+        if (destroySkillTimer > 0 || !isGameActive)
+        {
+            if (destroySkillTimer > 0)
+            {
+                Debug.Log("Destroy skill on cooldown: " + destroySkillTimer.ToString("F1") + "s");
+            }
+            return;
+        }
 
+        Debug.Log("Using destroy skill with flash effect!");
+
+        // 효과음 재생
         PlaySFX(skillActivateSound);
+
+        // 쿨다운 시작
         destroySkillTimer = destroySkillCooldown;
 
+        // 번쩍임 효과 시작
+        StartCoroutine(FlashEffect());
+
+        // 장애물 파괴
         GameObject[] obstacles = GameObject.FindGameObjectsWithTag("Obstacle");
         foreach (GameObject obstacle in obstacles)
         {
@@ -246,8 +651,89 @@ public class GameManager : MonoBehaviour
             Destroy(obstacle);
         }
 
-        Debug.Log($"Destroyed {obstacles.Length} obstacles!");
+        Debug.Log("Destroyed " + obstacles.Length + " obstacles!");
+
         UpdateDestroySkillUI();
+    }
+
+    // 번쩍임 효과 코루틴
+    private IEnumerator FlashEffect()
+    {
+        if (flashPanel == null)
+        {
+            Debug.LogWarning("Flash panel not found!");
+            yield break;
+        }
+
+        Debug.Log("Flash effect started");
+
+        // 번쩍이기 시작 (투명 -> 불투명)
+        float elapsed = 0f;
+        float halfDuration = flashDuration * 0.5f;
+
+        // 페이드 인
+        while (elapsed < halfDuration)
+        {
+            elapsed += Time.unscaledDeltaTime; // unscaledDeltaTime 사용 (timeScale 영향 안받음)
+            float alpha = Mathf.Lerp(0f, 1f, elapsed / halfDuration);
+            flashPanel.color = new Color(flashColor.r, flashColor.g, flashColor.b, alpha);
+            yield return null;
+        }
+
+        // 페이드 아웃
+        elapsed = 0f;
+        while (elapsed < halfDuration)
+        {
+            elapsed += Time.unscaledDeltaTime;
+            float alpha = Mathf.Lerp(1f, 0f, elapsed / halfDuration);
+            flashPanel.color = new Color(flashColor.r, flashColor.g, flashColor.b, alpha);
+            yield return null;
+        }
+
+        // 완전히 투명하게
+        flashPanel.color = new Color(flashColor.r, flashColor.g, flashColor.b, 0f);
+
+        Debug.Log("Flash effect completed");
+    }
+
+    // 수동으로 번쩍임 효과 실행 (다른 곳에서도 사용 가능)
+    public void TriggerFlashEffect()
+    {
+        TriggerFlashEffect(flashColor, flashDuration);
+    }
+
+    public void TriggerFlashEffect(Color color, float duration)
+    {
+        StartCoroutine(CustomFlashEffect(color, duration));
+    }
+
+    private IEnumerator CustomFlashEffect(Color color, float duration)
+    {
+        if (flashPanel == null) yield break;
+
+        float elapsed = 0f;
+        float halfDuration = duration * 0.5f;
+
+        // 페이드 인
+        while (elapsed < halfDuration)
+        {
+            elapsed += Time.unscaledDeltaTime;
+            float alpha = Mathf.Lerp(0f, 1f, elapsed / halfDuration);
+            flashPanel.color = new Color(color.r, color.g, color.b, alpha);
+            yield return null;
+        }
+
+        // 페이드 아웃
+        elapsed = 0f;
+        while (elapsed < halfDuration)
+        {
+            elapsed += Time.unscaledDeltaTime;
+            float alpha = Mathf.Lerp(1f, 0f, elapsed / halfDuration);
+            flashPanel.color = new Color(color.r, color.g, color.b, alpha);
+            yield return null;
+        }
+
+        flashPanel.color = new Color(color.r, color.g, color.b, 0f);
     }
 
     private void CreateDestroyEffect(Vector3 position)
@@ -257,9 +743,10 @@ public class GameManager : MonoBehaviour
         Destroy(effect, 0.5f);
     }
 
-    //  자석 아이템 - 수정된 버전
     public void ActivateMagnet()
     {
+        Debug.Log("Magnet activated - Lives: " + currentLives);
+
         if (isMagnetActive)
         {
             magnetTimer += magnetDuration;
@@ -269,19 +756,13 @@ public class GameManager : MonoBehaviour
             isMagnetActive = true;
             magnetTimer = magnetDuration;
 
-            // 자석 이펙트 UI 활성화 - 오류 수정
             if (magnetEffectUI != null)
             {
                 magnetEffectUI.ActivateMagnetEffect();
             }
-            else
-            {
-                Debug.LogWarning("MagnetEffectUI component not found!");
-            }
         }
 
         PlaySFX(skillActivateSound);
-        Debug.Log("Magnet activated!");
     }
 
     private void DeactivateMagnet()
@@ -289,7 +770,6 @@ public class GameManager : MonoBehaviour
         isMagnetActive = false;
         magnetTimer = 0f;
 
-        // 자석 이펙트 UI 비활성화 - 오류 수정
         if (magnetEffectUI != null)
         {
             magnetEffectUI.DeactivateMagnetEffect();
@@ -298,7 +778,6 @@ public class GameManager : MonoBehaviour
         Debug.Log("Magnet deactivated");
     }
 
-    // UI 업데이트 메서드들
     private void UpdateAllUI()
     {
         UpdateScoreUI();
@@ -346,7 +825,14 @@ public class GameManager : MonoBehaviour
             }
             else
             {
-                destroySkillCooldownText.text = "READY";
+                if (enableKeyboardInput)
+                {
+                    destroySkillCooldownText.text = "READY (" + destroySkillKey + ")";
+                }
+                else
+                {
+                    destroySkillCooldownText.text = "READY";
+                }
                 destroySkillCooldownText.gameObject.SetActive(false);
             }
         }
@@ -418,13 +904,12 @@ public class GameManager : MonoBehaviour
 
         ShowComboUI(false);
 
-        // 자석 효과도 게임오버 시 비활성화
         if (isMagnetActive)
         {
             DeactivateMagnet();
         }
 
-        Debug.Log($"Game Over - Final Score: {score}, Play Time: {FormatTime(playTime)}");
+        Debug.Log("Game Over - Score: " + score + ", Time: " + FormatTime(playTime));
 
         SaveGameStats();
 
@@ -556,8 +1041,6 @@ public class GameManager : MonoBehaviour
 
     public void RestartGame()
     {
-        Debug.Log("Restarting Game...");
-
         if (gameOverCoroutine != null)
         {
             StopCoroutine(gameOverCoroutine);
@@ -581,8 +1064,6 @@ public class GameManager : MonoBehaviour
 
     public void GoToHome()
     {
-        Debug.Log("Going to Home...");
-
         if (gameOverCoroutine != null)
         {
             StopCoroutine(gameOverCoroutine);
@@ -599,7 +1080,7 @@ public class GameManager : MonoBehaviour
             bgm.pitch = 1f;
             bgm.volume = 1f;
         }
-        Time.timeScale = 1f;
+
         SceneManager.LoadScene("StartScene");
     }
 
@@ -613,4 +1094,20 @@ public class GameManager : MonoBehaviour
     public bool IsDestroySkillReady() => destroySkillTimer <= 0;
     public bool IsMagnetActive() => isMagnetActive;
     public float GetMagnetTimeRemaining() => isMagnetActive ? magnetTimer : 0f;
+    // 버프 상태 확인 메서드들
+    public bool IsShrinkActive() => isShrinkActive;
+    public bool IsHideActive() => isHideActive;
+    public float GetShrinkTimeRemaining() => isShrinkActive ? shrinkTimer : 0f;
+    public float GetHideTimeRemaining() => isHideActive ? hideTimer : 0f;
+
+    public void SetKeyboardInputEnabled(bool enabled)
+    {
+        enableKeyboardInput = enabled;
+    }
+
+    public void ChangeDestroySkillKey(KeyCode newKey)
+    {
+        destroySkillKey = newKey;
+        UpdateDestroySkillUI();
+    }
 }

@@ -12,6 +12,7 @@ GameObject:
   - component: {fileID: 3730643413140457437}
   - component: {fileID: 693771858676008546}
   - component: {fileID: 8868146529564197208}
+  - component: {fileID: 5221227225520944605}
   m_Layer: 0
   m_Name: cricket
   m_TagString: Item
@@ -181,3 +182,17 @@ Rigidbody2D:
   m_SleepingMode: 1
   m_CollisionDetection: 0
   m_Constraints: 0
+--- !u!114 &5221227225520944605
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3500081758333946733}
+  m_Enabled: 0
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5c5010aa704ff6e47b27315ee6aec70a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  speed: 0.3
+  destroyBoundary: -7

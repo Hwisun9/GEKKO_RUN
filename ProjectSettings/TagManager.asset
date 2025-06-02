@@ -8,6 +8,8 @@ TagManager:
   - Item
   - Obstacle
   - Magnet
+  - Mushroom
+  - Hide
   layers:
   - Default
   - TransparentFX

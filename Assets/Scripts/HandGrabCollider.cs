@@ -62,7 +62,7 @@ public class HandGrabCollider : MonoBehaviour
             if (GameManager.Instance != null)
             {
                 Debug.Log("GameManager.GameOver() »£√‚");
-                GameManager.Instance.GameOver();
+                GameManager.Instance.TakeDamage();
             }
             else
             {

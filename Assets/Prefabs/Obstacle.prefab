@@ -12,6 +12,7 @@ GameObject:
   - component: {fileID: 4843362133730494436}
   - component: {fileID: 6079264842607057757}
   - component: {fileID: 4931518563748762572}
+  - component: {fileID: -3991182310623079992}
   m_Layer: 0
   m_Name: Obstacle
   m_TagString: Obstacle
@@ -184,3 +185,17 @@ Rigidbody2D:
   m_SleepingMode: 1
   m_CollisionDetection: 0
   m_Constraints: 0
+--- !u!114 &-3991182310623079992
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5803928946863272384}
+  m_Enabled: 0
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5c5010aa704ff6e47b27315ee6aec70a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  speed: 0.3
+  destroyBoundary: -7
