@@ -26,6 +26,9 @@ public class HandObstacleManager : MonoBehaviour
     public bool adjustWithDifficulty = true;
     public float minIntervalAtMaxDifficulty = 1.5f;
 
+    [Header(" 부스터 설정")]
+    public bool disableOnBooster = true; // 부스터 시 비활성화 여부
+
     // 내부 변수
     private GameObject currentLeftHand;
     private GameObject currentRightHand;
@@ -34,6 +37,9 @@ public class HandObstacleManager : MonoBehaviour
     private bool isGrabbing = false;
     private Coroutine grabCoroutine;
     private int grabCount = 0; // 잡기 횟수 카운트
+
+    //  부스터 관련 변수
+    private bool wasBoosterActive = false;
 
     void Start()
     {
@@ -48,6 +54,148 @@ public class HandObstacleManager : MonoBehaviour
 
         // 2초 후에 시작
         Invoke("DelayedStart", 2f);
+    }
+
+    void Update()
+    {
+        //  부스터 상태 모니터링
+        CheckBoosterStatus();
+    }
+
+    //  부스터 상태 확인 및 처리
+    void CheckBoosterStatus()
+    {
+        if (!disableOnBooster) return;
+
+        bool isBoosterCurrentlyActive = BoosterSystem.Instance != null && BoosterSystem.Instance.IsBoosterActive();
+
+        // 부스터가 새로 활성화되었을 때
+        if (isBoosterCurrentlyActive && !wasBoosterActive)
+        {
+            Debug.Log(" 부스터 활성화됨 - HandGrab 패턴 중지");
+            PauseGrabPattern();
+        }
+        // 부스터가 비활성화되었을 때
+        else if (!isBoosterCurrentlyActive && wasBoosterActive)
+        {
+            Debug.Log(" 부스터 비활성화됨 - HandGrab 패턴 재개");
+            ResumeGrabPattern();
+        }
+
+        wasBoosterActive = isBoosterCurrentlyActive;
+    }
+
+    //  잡기 패턴 일시 중지
+    void PauseGrabPattern()
+    {
+        // 진행 중인 잡기 중단
+        if (grabCoroutine != null)
+        {
+            StopCoroutine(grabCoroutine);
+            grabCoroutine = null;
+        }
+
+        // 현재 잡기 상태 강제 종료
+        if (isGrabbing)
+        {
+            StartCoroutine(ForceStopCurrentGrab());
+        }
+
+        Debug.Log("HandGrab 패턴이 일시 중지되었습니다");
+    }
+
+    //  잡기 패턴 재개
+    void ResumeGrabPattern()
+    {
+        // 게임이 활성화되어 있을 때만 재개
+        if (GameManager.Instance != null && GameManager.Instance.isGameActive)
+        {
+            StartGrabSequence();
+            Debug.Log("HandGrab 패턴이 재개되었습니다");
+        }
+    }
+
+    //  현재 잡기 강제 중단
+    IEnumerator ForceStopCurrentGrab()
+    {
+        Debug.Log("현재 잡기 강제 중단 시작");
+
+        // 잡기 상태 비활성화
+        DisableAllGrabbing();
+
+        // 손들을 원래 위치로 빠르게 복귀
+        if (currentLeftHand != null && currentLeftHand.transform.position != leftHandOriginalPos)
+        {
+            StartCoroutine(QuickMoveHandToPosition(currentLeftHand, leftHandOriginalPos));
+        }
+
+        if (currentRightHand != null && currentRightHand.transform.position != rightHandOriginalPos)
+        {
+            StartCoroutine(QuickMoveHandToPosition(currentRightHand, rightHandOriginalPos));
+        }
+
+        // 모든 경고 아이콘 제거
+        RemoveAllWarningIcons();
+
+        isGrabbing = false;
+        Debug.Log("현재 잡기 강제 중단 완료");
+
+        yield return null;
+    }
+
+    //  빠른 손 이동 (부스터 중단 시 사용)
+    IEnumerator QuickMoveHandToPosition(GameObject hand, Vector3 targetPosition)
+    {
+        if (hand == null) yield break;
+
+        Vector3 startPosition = hand.transform.position;
+        float quickMoveSpeed = handMoveSpeed * 3f; // 3배 빠르게
+        float distance = Vector3.Distance(startPosition, targetPosition);
+        float moveTime = distance / quickMoveSpeed;
+        float elapsed = 0f;
+
+        while (elapsed < moveTime)
+        {
+            elapsed += Time.deltaTime;
+            float progress = elapsed / moveTime;
+            if (progress > 1f) progress = 1f;
+
+            Vector3 currentPos = Vector3.Lerp(startPosition, targetPosition, progress);
+            hand.transform.position = currentPos;
+
+            yield return null;
+        }
+
+        hand.transform.position = targetPosition;
+    }
+
+    //  모든 잡기 상태 비활성화
+    void DisableAllGrabbing()
+    {
+        if (currentLeftHand != null)
+        {
+            HandGrabCollider leftGrabber = currentLeftHand.GetComponent<HandGrabCollider>();
+            if (leftGrabber != null) leftGrabber.EnableGrabbing(false);
+        }
+
+        if (currentRightHand != null)
+        {
+            HandGrabCollider rightGrabber = currentRightHand.GetComponent<HandGrabCollider>();
+            if (rightGrabber != null) rightGrabber.EnableGrabbing(false);
+        }
+    }
+
+    //  모든 경고 아이콘 제거
+    void RemoveAllWarningIcons()
+    {
+        GameObject[] warnings = GameObject.FindGameObjectsWithTag("Warning");
+        foreach (GameObject warning in warnings)
+        {
+            if (warning != null)
+            {
+                Destroy(warning);
+            }
+        }
     }
 
     void DelayedStart()
@@ -158,6 +306,14 @@ public class HandObstacleManager : MonoBehaviour
                 continue;
             }
 
+            //  부스터 활성화 시 패턴 중지
+            if (disableOnBooster && BoosterSystem.Instance != null && BoosterSystem.Instance.IsBoosterActive())
+            {
+                Debug.Log("부스터 활성화 중이므로 HandGrab 패턴 대기...");
+                yield return new WaitForSeconds(0.5f);
+                continue;
+            }
+
             Debug.Log("잡기 시퀀스 실행 중...");
 
             // 다음 잡기까지 대기 시간 계산
@@ -165,6 +321,13 @@ public class HandObstacleManager : MonoBehaviour
             Debug.Log($"다음 잡기까지 대기 시간: {waitTime}초");
 
             yield return new WaitForSeconds(waitTime);
+
+            //  실행 직전에 다시 부스터 상태 확인
+            if (disableOnBooster && BoosterSystem.Instance != null && BoosterSystem.Instance.IsBoosterActive())
+            {
+                Debug.Log("잡기 실행 직전 부스터 감지 - 스킵");
+                continue;
+            }
 
             Debug.Log("잡기 실행 시작!");
             yield return StartCoroutine(ExecuteGrab());
@@ -200,6 +363,13 @@ public class HandObstacleManager : MonoBehaviour
         if (isGrabbing)
         {
             Debug.Log("이미 잡기 중이므로 스킵");
+            yield break;
+        }
+
+        //  실행 중 부스터 상태 추가 확인
+        if (disableOnBooster && BoosterSystem.Instance != null && BoosterSystem.Instance.IsBoosterActive())
+        {
+            Debug.Log("잡기 실행 중 부스터 감지 - 중단");
             yield break;
         }
 
@@ -261,11 +431,25 @@ public class HandObstacleManager : MonoBehaviour
         {
             warningIcon = Instantiate(warningIconPrefab);
             warningIcon.transform.position = new Vector3(grabX, handTopY + 0.5f, 0);
+            warningIcon.tag = "Warning"; //  태그 설정 (자동 제거용)
             Debug.Log("경고 아이콘 생성");
         }
 
-        // 4. 경고 시간 대기
-        yield return new WaitForSeconds(warningDuration);
+        // 4. 경고 시간 대기 (부스터 확인 포함)
+        float warningElapsed = 0f;
+        while (warningElapsed < warningDuration)
+        {
+            // 부스터 활성화 시 중단
+            if (disableOnBooster && BoosterSystem.Instance != null && BoosterSystem.Instance.IsBoosterActive())
+            {
+                Debug.Log("경고 중 부스터 감지 - 잡기 중단");
+                if (warningIcon != null) Destroy(warningIcon);
+                yield break;
+            }
+
+            warningElapsed += Time.deltaTime;
+            yield return null;
+        }
 
         // 5. 경고 아이콘 제거
         if (warningIcon != null)
@@ -287,8 +471,22 @@ public class HandObstacleManager : MonoBehaviour
             Debug.Log("잡기 상태 활성화");
         }
 
-        // 8. 잡기 시간 대기
-        yield return new WaitForSeconds(handGrabDuration);
+        // 8. 잡기 시간 대기 (부스터 확인 포함)
+        float grabElapsed = 0f;
+        while (grabElapsed < handGrabDuration)
+        {
+            // 부스터 활성화 시 중단
+            if (disableOnBooster && BoosterSystem.Instance != null && BoosterSystem.Instance.IsBoosterActive())
+            {
+                Debug.Log("잡기 중 부스터 감지 - 잡기 중단");
+                if (grabCollider != null) grabCollider.EnableGrabbing(false);
+                yield return StartCoroutine(MoveHandToPosition(handToUse, originalPosition));
+                yield break;
+            }
+
+            grabElapsed += Time.deltaTime;
+            yield return null;
+        }
 
         // 9. 잡기 상태 비활성화
         if (grabCollider != null)
@@ -322,15 +520,33 @@ public class HandObstacleManager : MonoBehaviour
         {
             leftWarning = Instantiate(warningIconPrefab);
             leftWarning.transform.position = new Vector3(leftGrabX, handTopY + 0.5f, 0);
+            leftWarning.tag = "Warning"; // 태그 설정
 
             rightWarning = Instantiate(warningIconPrefab);
             rightWarning.transform.position = new Vector3(rightGrabX, handTopY + 0.5f, 0);
+            rightWarning.tag = "Warning"; //  태그 설정
 
             Debug.Log("양쪽 경고 아이콘 생성");
         }
 
-        // 3. 경고 시간 대기 (양손일 때는 조금 더 길게)
-        yield return new WaitForSeconds(warningDuration + 0.5f);
+        // 3. 경고 시간 대기 (양손일 때는 조금 더 길게) ( 부스터 확인 포함)
+        float warningElapsed = 0f;
+        float totalWarningTime = warningDuration + 0.5f;
+
+        while (warningElapsed < totalWarningTime)
+        {
+            // 부스터 활성화 시 중단
+            if (disableOnBooster && BoosterSystem.Instance != null && BoosterSystem.Instance.IsBoosterActive())
+            {
+                Debug.Log("양손 경고 중 부스터 감지 - 잡기 중단");
+                if (leftWarning != null) Destroy(leftWarning);
+                if (rightWarning != null) Destroy(rightWarning);
+                yield break;
+            }
+
+            warningElapsed += Time.deltaTime;
+            yield return null;
+        }
 
         // 4. 경고 아이콘 제거
         if (leftWarning != null) Destroy(leftWarning);
@@ -354,8 +570,28 @@ public class HandObstacleManager : MonoBehaviour
         if (rightGrabber != null) rightGrabber.EnableGrabbing(true);
         Debug.Log("양손 잡기 상태 활성화");
 
-        // 8. 잡기 시간 대기 (양손일 때는 조금 더 길게)
-        yield return new WaitForSeconds(handGrabDuration + 0.3f);
+        // 8. 잡기 시간 대기 (양손일 때는 조금 더 길게) (부스터 확인 포함)
+        float grabElapsed = 0f;
+        float totalGrabTime = handGrabDuration + 0.3f;
+
+        while (grabElapsed < totalGrabTime)
+        {
+            // 부스터 활성화 시 중단
+            if (disableOnBooster && BoosterSystem.Instance != null && BoosterSystem.Instance.IsBoosterActive())
+            {
+                Debug.Log("양손 잡기 중 부스터 감지 - 잡기 중단");
+                if (leftGrabber != null) leftGrabber.EnableGrabbing(false);
+                if (rightGrabber != null) rightGrabber.EnableGrabbing(false);
+
+                // 양손 빠른 복귀
+                StartCoroutine(MoveHandToPosition(currentLeftHand, leftHandOriginalPos));
+                StartCoroutine(MoveHandToPosition(currentRightHand, rightHandOriginalPos));
+                yield break;
+            }
+
+            grabElapsed += Time.deltaTime;
+            yield return null;
+        }
 
         // 9. 양손 잡기 상태 비활성화
         if (leftGrabber != null) leftGrabber.EnableGrabbing(false);
@@ -427,6 +663,13 @@ public class HandObstacleManager : MonoBehaviour
 
         while (elapsed < moveTime)
         {
+            // 이동 중 부스터 확인
+            if (disableOnBooster && BoosterSystem.Instance != null && BoosterSystem.Instance.IsBoosterActive())
+            {
+                Debug.Log("손 이동 중 부스터 감지 - 이동 중단");
+                break;
+            }
+
             elapsed += Time.deltaTime;
             float progress = elapsed / moveTime;
             if (progress > 1f) progress = 1f;
@@ -471,6 +714,10 @@ public class HandObstacleManager : MonoBehaviour
             Debug.Log($"오른손 위치 리셋: {rightHandOriginalPos}");
         }
     }
+
+    // 공개 메서드들
+    public bool IsGrabbing() => isGrabbing;
+    public bool IsPatternPaused() => disableOnBooster && BoosterSystem.Instance != null && BoosterSystem.Instance.IsBoosterActive();
 
     void OnDisable()
     {

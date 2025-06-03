@@ -53,6 +53,13 @@ public class GameManager : MonoBehaviour
     public float hideDuration = 6f; // 투명화 효과 지속시간
     public float hideAlpha = 0.2f; // 투명도 (0.3 = 30% 불투명)
 
+    [Header("Animation Settings")]
+    public float shrinkAnimationDuration = 0.5f; // 작아지는 애니메이션 시간
+    public float expandAnimationDuration = 0.5f; // 커지는 애니메이션 시간
+    public float warningBlinkDuration = 1f; // 경고 깜빡임 시간
+    public int warningBlinkCount = 6; // 깜빡임 횟수
+
+
     // 버프 상태 변수들
     private bool isShrinkActive = false;
     private float shrinkTimer = 0f;
@@ -60,10 +67,16 @@ public class GameManager : MonoBehaviour
     private float hideTimer = 0f;
 
     // 플레이어 관련 참조
+    private Transform playerTransform;
     private SpriteRenderer playerSpriteRenderer;
     private Collider2D playerCollider;
     private Vector3 originalPlayerScale;
     private Color originalPlayerColor;
+
+    // 애니메이션 관련
+    private Coroutine shrinkAnimationCoroutine;
+    private Coroutine hideAnimationCoroutine;
+    private Coroutine boosterAnimationCoroutine;
 
     // 버프 UI 참조 (선택사항)
     [Header("Buff UI")]
@@ -86,6 +99,9 @@ public class GameManager : MonoBehaviour
     public AudioClip hitSound;
     public AudioClip skillActivateSound;
     public AudioSource sfxAudioSource;
+    public AudioClip magnetSound;
+    public AudioClip mushroomSound;
+    public AudioClip hidePotionSound;
 
     [Header("Game Over Settings")]
     public float gameOverSlowDownDuration = 3f;
@@ -95,7 +111,7 @@ public class GameManager : MonoBehaviour
     private bool isGameOverInProgress = false;
     private float gameStartTime;
     private Coroutine gameOverCoroutine;
-    private Transform playerTransform;
+
 
     void Awake()
     {

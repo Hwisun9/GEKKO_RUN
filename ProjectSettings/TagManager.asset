@@ -10,6 +10,7 @@ TagManager:
   - Magnet
   - Mushroom
   - Hide
+  - Warning
   layers:
   - Default
   - TransparentFX

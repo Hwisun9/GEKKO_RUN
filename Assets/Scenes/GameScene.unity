@@ -544,35 +544,35 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   allSpawnItems:
   - prefab: {fileID: 3500081758333946733, guid: 99c6113a76257134488b7f2b3bb48cbf, type: 3}
-    spawnWeight: 1
+    spawnWeight: 1.8
     itemType: 0
     speedMultiplier: 0.3
     scoreValue: 50
     effectColor: {r: 0.10902455, g: 0.9245283, b: 0.68632555, a: 0}
     spawnChance: 1
   - prefab: {fileID: 5864968732298219056, guid: 7ffedadaaf9131143afde8b897b05e55, type: 3}
-    spawnWeight: 1
+    spawnWeight: 2.5
     itemType: 0
     speedMultiplier: 0.3
     scoreValue: 100
     effectColor: {r: 0.3568441, g: 0.9339623, b: 0.41972217, a: 0}
     spawnChance: 1
   - prefab: {fileID: 5410732150586343844, guid: 659774483580a484780495e4dbc0a98f, type: 3}
-    spawnWeight: 1
+    spawnWeight: 2
     itemType: 0
     speedMultiplier: 0.3
     scoreValue: 150
     effectColor: {r: 0.3346725, g: 0.9433962, b: 0.004449993, a: 0}
     spawnChance: 1
   - prefab: {fileID: 4345484632863524560, guid: 91c31a367593e914981b1c0bd9464b3a, type: 3}
-    spawnWeight: 0.5
+    spawnWeight: 0.3
     itemType: 1
     speedMultiplier: 0.3
     scoreValue: 0
     effectColor: {r: 0.08597367, g: 0.5417346, b: 0.7924528, a: 0}
     spawnChance: 1
   - prefab: {fileID: 8010213800343691143, guid: dfd07922fa8dc8848bb26c1daafcf91a, type: 3}
-    spawnWeight: 0.5
+    spawnWeight: 0.3
     itemType: 1
     speedMultiplier: 0.3
     scoreValue: 0
@@ -2403,6 +2403,10 @@ MonoBehaviour:
   shrinkScale: 0.3
   hideDuration: 6
   hideAlpha: 0.2
+  shrinkAnimationDuration: 0.5
+  expandAnimationDuration: 0.5
+  warningBlinkDuration: 1
+  warningBlinkCount: 6
   shrinkBuffUI: {fileID: 0}
   hideBuffUI: {fileID: 0}
   shrinkTimerText: {fileID: 0}
@@ -2414,8 +2418,11 @@ MonoBehaviour:
   bgm: {fileID: 1110231626}
   itemCollectSound: {fileID: 8300000, guid: 39aa63bd689ea4b43926fd59e665736b, type: 3}
   hitSound: {fileID: 8300000, guid: f19646e7bc53adc429ff3833da7153e3, type: 3}
-  skillActivateSound: {fileID: 8300000, guid: 2afe55d4da011f34e980637ee658510a, type: 3}
+  skillActivateSound: {fileID: 8300000, guid: 3c52f282de8995f48bcb31f5792499e2, type: 3}
   sfxAudioSource: {fileID: 1110231626}
+  magnetSound: {fileID: 8300000, guid: e47cda6e0962ca347b04d6badb70d1ce, type: 3}
+  mushroomSound: {fileID: 8300000, guid: 3f7929256dea9ab438eec7ad523418f4, type: 3}
+  hidePotionSound: {fileID: 8300000, guid: a32bd483cd080c44184b1e56430178f7, type: 3}
   gameOverSlowDownDuration: 3
   finalTimeScale: 0.1
   finalPitch: 0.5
@@ -3004,12 +3011,12 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   magnetRingPrefab: {fileID: 1873515527354281406, guid: 9076e5156d12ec94c871f423d870c6aa, type: 3}
-  effectRadius: 30
+  effectRadius: 15
   rotationSpeed: 30
   pulseSpeed: 2
   minScale: 0.8
   maxScale: 1.2
-  magnetColor: {r: 0, g: 1, b: 1, a: 1}
+  magnetColor: {r: 0.17163582, g: 0.9575472, b: 0.76687986, a: 1}
   enableParticles: 0
   particleEffectPrefab: {fileID: 0}
 --- !u!4 &1577522093
@@ -3805,12 +3812,12 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   boosterDuration: 10
-  speedMultiplier: 2
-  boosterColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
+  speedMultiplier: 2.5
+  boosterColor: {r: 1, g: 0.79746425, b: 0.015686274, a: 1}
   flashInterval: 0.5
   boosterStartSound: {fileID: 0}
   boosterEndSound: {fileID: 0}
-  obstacleDestroySound: {fileID: 0}
+  obstacleDestroySound: {fileID: 8300000, guid: 0bee34770640bd348bebffc1c1f65cf6, type: 3}
 --- !u!4 &1750545538
 Transform:
   m_ObjectHideFlags: 0
@@ -4026,6 +4033,7 @@ MonoBehaviour:
   handMoveSpeed: 10
   adjustWithDifficulty: 1
   minIntervalAtMaxDifficulty: 1.5
+  disableOnBooster: 1
 --- !u!1 &1983676694
 GameObject:
   m_ObjectHideFlags: 0

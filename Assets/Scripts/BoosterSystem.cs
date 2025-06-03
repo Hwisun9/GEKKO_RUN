@@ -5,7 +5,7 @@ public class BoosterSystem : MonoBehaviour
 {
     [Header("부스터 설정")]
     public float boosterDuration = 10f; // 부스터 지속 시간
-    public float speedMultiplier = 2f; // 속도 배율
+    public float speedMultiplier = 3f; // 속도 배율
 
     [Header("시각 효과")]
     public Color boosterColor = Color.yellow; // 부스터 색상
