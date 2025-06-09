@@ -3,6 +3,7 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using System.Collections;
+using System.Collections.Generic;
 
 public class GameManager : MonoBehaviour
 {
@@ -46,10 +47,11 @@ public class GameManager : MonoBehaviour
 
     [Header("Magnet Effect")]
     public MagnetEffectUI magnetEffectUI;
+    public float magnetPullSpeed = 25f; // 자석 당김 속도 - 기본값을 더 크게 조정
 
     [Header("Buff Effects")]
     public float shrinkDuration = 8f;
-    public float shrinkScale = 0.1f;
+    public float shrinkScale = 0.4f;
     public float hideDuration = 6f;
     public float hideAlpha = 0.2f;
 
@@ -93,7 +95,8 @@ public class GameManager : MonoBehaviour
     public GameOverManager gameOverManager;
 
     [Header("Audio")]
-    public AudioSource bgm;
+    // BGM을 AudioManager로 이전
+    // public AudioSource bgm;
     public AudioClip itemCollectSound;
     public AudioClip hitSound;
     public AudioClip skillActivateSound;
@@ -132,15 +135,47 @@ public class GameManager : MonoBehaviour
         InitializeFlashEffect();
     }
 
+    // 성능 최적화를 위한 타이머 변수
+    private float _magnetUpdateTimer = 0f;
+    private float _shrinkUpdateTimer = 0f;
+    private float _hideUpdateTimer = 0f;
+    private float _skillsUpdateTimer = 0f;
+    
     void Update()
     {
         if (isGameActive && !isGameOverInProgress)
         {
             UpdatePlayTime();
-            UpdateSkills();
-            UpdateMagnetEffect();
-            UpdateShrinkEffect();
-            UpdateHideEffect();
+            
+            // 업데이트 주기 최적화 - 모든 업데이트를 매 프레임 실행하는 대신 주기적으로 실행
+            _skillsUpdateTimer += Time.deltaTime;
+            if (_skillsUpdateTimer >= 0.1f) // 0.1초마다 업데이트
+            {
+                _skillsUpdateTimer = 0f;
+                UpdateSkills();
+            }
+            
+            _magnetUpdateTimer += Time.deltaTime;
+            if (isMagnetActive && _magnetUpdateTimer >= 0.01f) // 자석 효과는 더 자주 업데이트 (0.01초)
+            {
+                _magnetUpdateTimer = 0f;
+                UpdateMagnetEffect();
+            }
+            
+            _shrinkUpdateTimer += Time.deltaTime;
+            if (isShrinkActive && _shrinkUpdateTimer >= 0.2f) // 0.2초마다 업데이트
+            {
+                _shrinkUpdateTimer = 0f;
+                UpdateShrinkEffect();
+            }
+            
+            _hideUpdateTimer += Time.deltaTime;
+            if (isHideActive && _hideUpdateTimer >= 0.2f) // 0.2초마다 업데이트
+            {
+                _hideUpdateTimer = 0f;
+                UpdateHideEffect();
+            }
+            
             HandleInput();
         }
     }
@@ -192,7 +227,7 @@ public class GameManager : MonoBehaviour
         // 하트 UI 시스템이 할당되어 있지 않으면 찾기
         if (heartUI == null)
         {
-            heartUI = FindObjectOfType<HeartUISystem>();
+            heartUI = FindFirstObjectByType<HeartUISystem>();
             
             if (heartUI == null)
             {
@@ -220,7 +255,7 @@ public class GameManager : MonoBehaviour
     private void CreateFlashPanel()
     {
         // Canvas 찾기
-        Canvas canvas = FindObjectOfType<Canvas>();
+        Canvas canvas = FindFirstObjectByType<Canvas>();
         if (canvas == null)
         {
             Debug.LogWarning("Canvas not found! Flash effect will not work.");
@@ -549,10 +584,19 @@ public class GameManager : MonoBehaviour
         }
     }
 
+    private float _playTimeUpdateTimer = 0f;
+    
     private void UpdatePlayTime()
     {
         playTime = Time.realtimeSinceStartup - gameStartTime;
-        UpdatePlayTimeUI();
+        
+        // UI 업데이트는 더 낮은 주기로 실행 (0.1초마다)
+        _playTimeUpdateTimer += Time.deltaTime;
+        if (_playTimeUpdateTimer >= 0.1f)
+        {
+            _playTimeUpdateTimer = 0f;
+            UpdatePlayTimeUI();
+        }
     }
 
     private void UpdateSkills()
@@ -564,6 +608,12 @@ public class GameManager : MonoBehaviour
         }
     }
 
+    // 자석 효과를 위한 그래디언트 배열 캐싱
+    private GameObject[] _itemsCache = new GameObject[100]; // 초기 용량
+    private bool _resetItemsCache = true;
+    private int _currentItemsCount = 0;
+    private int _updateFrequency = 2; // 매 프레임마다 업데이트하도록 수정
+    
     private void UpdateMagnetEffect()
     {
         if (!isMagnetActive) return;
@@ -572,22 +622,62 @@ public class GameManager : MonoBehaviour
 
         if (playerTransform != null)
         {
-            GameObject[] items = GameObject.FindGameObjectsWithTag("Item");
+            // 캐싱된 배열 사용
             int itemsAffected = 0;
-
-            foreach (GameObject item in items)
+            
+            // 더 자주 오브젝트 목록 업데이트 (매 2프레임마다)
+            if (_resetItemsCache || Time.frameCount % _updateFrequency == 0)
             {
-                float distance = Vector2.Distance(playerTransform.position, item.transform.position);
+                GameObject[] items = GameObject.FindGameObjectsWithTag("Item");
+                
+                // 용량 확인 및 확장
+                if (items.Length > _itemsCache.Length)
+                {
+                    _itemsCache = new GameObject[Mathf.Max(items.Length, _itemsCache.Length * 2)];
+                }
+                
+                // 새 배열 복사
+                System.Array.Copy(items, _itemsCache, items.Length);
+                _currentItemsCount = items.Length;
+                _resetItemsCache = false;
+            }
+            
+            // 캐싱된 아이템 사용
+            Vector3 playerPos = playerTransform.position;
+            
+            for (int i = 0; i < _currentItemsCount; i++)
+            {
+                GameObject item = _itemsCache[i];
+                
+                // 아이템이 유효한지 확인
+                if (item == null || !item.activeInHierarchy) continue;
+                
+                Transform itemTransform = item.transform;
+                float distance = Vector2.Distance(playerPos, itemTransform.position);
+                
+                // 거리에 따른 당김 강도 조절 - 가까울수록 더 강하게
+                float pullFactor = 1.0f;
                 if (distance <= magnetRange)
                 {
-                    Vector2 direction = (playerTransform.position - item.transform.position).normalized;
-                    item.transform.Translate(direction * 8f * Time.deltaTime);
+                    // 거리가 가까울수록 더 강하게 당김 (거리의 제곱에 반비례)
+                    pullFactor = Mathf.Clamp(1.0f - (distance / magnetRange), 0.3f, 1.0f);
+                    
+                    // 방향 계산 및 속도 조정
+                    Vector3 direction = (playerPos - itemTransform.position).normalized;
+                    
+                    // 거리에 따라 다른 속도 적용 (가까울수록 더 빠르게)
+                    float currentPullSpeed = magnetPullSpeed * pullFactor;
+                    
+                    // Transform.Translate 대신 직접 위치 업데이트 - 더 빠르고 안정적
+                    Vector3 newPosition = itemTransform.position + direction * currentPullSpeed * Time.deltaTime;
+                    itemTransform.position = newPosition;
+                    
                     itemsAffected++;
                 }
             }
-
             
-            if (itemsAffected > 0 && Time.frameCount % 60 == 0)
+            // 로깅 주기 조절 - 성능 최적화
+            if (itemsAffected > 0 && Time.frameCount % 300 == 0)
             {
                 Debug.Log("Magnet pulling " + itemsAffected + " items");
             }
@@ -636,14 +726,19 @@ public class GameManager : MonoBehaviour
 
     private void PlaySFX(AudioClip clip)
     {
-        if (sfxAudioSource != null && clip != null)
+        // AudioManager가 있으면 그것을 사용
+        if (AudioManager.Instance != null)
+        {
+            AudioManager.Instance.PlaySFX(clip);
+        }
+        // 없으면 기존 방식 사용
+        else if (sfxAudioSource != null && clip != null)
         {
             sfxAudioSource.PlayOneShot(clip);
         }
     }
 
-    // 파괴 스킬 - 플래시 효과 추가
-    public void UseDestroySkill()
+    void UseDestroySkill()
     {
         if (destroySkillTimer > 0 || !isGameActive)
         {
@@ -654,8 +749,6 @@ public class GameManager : MonoBehaviour
             return;
         }
 
-        Debug.Log("Using destroy skill with flash effect!");
-
         // 효과음 재생
         PlaySFX(skillActivateSound);
 
@@ -665,12 +758,37 @@ public class GameManager : MonoBehaviour
         // 플래시 효과 실행
         StartCoroutine(FlashEffect());
 
-        // 장애물 파괴
+        // 장애물 파괴 최적화 - 일괄 처리
+        // 장애물 찾기와 파괴를 단일 루프로 처리
+        List<GameObject> obstaclesToDestroy = new List<GameObject>();
         GameObject[] obstacles = GameObject.FindGameObjectsWithTag("Obstacle");
+
+        // 캐싱된 ObjectPool 인스턴스 가져오기
+        ObjectPool objectPool = ObjectPool.Instance;
+
+        // 장애물 처리
         foreach (GameObject obstacle in obstacles)
         {
+            // 이펙트 생성
             CreateDestroyEffect(obstacle.transform.position);
-            Destroy(obstacle);
+
+            // 장애물 처리 (풀링 또는 파괴)
+            if (objectPool != null)
+            {
+                string tag = "Obstacle_" + obstacle.name.Replace("(Clone)", "");
+                obstacle.SetActive(false);
+                objectPool.ReturnToPool(tag, obstacle);
+            }
+            else
+            {
+                obstaclesToDestroy.Add(obstacle);
+            }
+        }
+
+        // 풀링되지 않은 장애물 일괄 파괴
+        for (int i = 0; i < obstaclesToDestroy.Count; i++)
+        {
+            Destroy(obstaclesToDestroy[i]);
         }
 
         Debug.Log("Destroyed " + obstacles.Length + " obstacles!");
@@ -678,7 +796,6 @@ public class GameManager : MonoBehaviour
         UpdateDestroySkillUI();
     }
 
-    // 플래시 효과 코루틴
     private IEnumerator FlashEffect()
     {
         if (flashPanel == null)
@@ -687,35 +804,33 @@ public class GameManager : MonoBehaviour
             yield break;
         }
 
-        Debug.Log("Flash effect started");
-
         // 플래시기능 (서서히 -> 서서히)
         float elapsed = 0f;
         float halfDuration = flashDuration * 0.5f;
+        Color targetColor = new Color(flashColor.r, flashColor.g, flashColor.b, 1f);
+        Color clearColor = new Color(flashColor.r, flashColor.g, flashColor.b, 0f);
 
-        // 페이드 인
+        // 페이드 인 - Color.Lerp 대신 직접 계산으로 최적화
         while (elapsed < halfDuration)
         {
             elapsed += Time.unscaledDeltaTime; // unscaledDeltaTime 사용 (timeScale 영향 안받음)
-            float alpha = Mathf.Lerp(0f, 1f, elapsed / halfDuration);
-            flashPanel.color = new Color(flashColor.r, flashColor.g, flashColor.b, alpha);
+            float alpha = elapsed / halfDuration;
+            flashPanel.color = Color.Lerp(clearColor, targetColor, alpha);
             yield return null;
         }
 
-        // 페이드 아웃
+        // 페이드 아웃 - Color.Lerp 대신 직접 계산으로 최적화
         elapsed = 0f;
         while (elapsed < halfDuration)
         {
             elapsed += Time.unscaledDeltaTime;
-            float alpha = Mathf.Lerp(1f, 0f, elapsed / halfDuration);
-            flashPanel.color = new Color(flashColor.r, flashColor.g, flashColor.b, alpha);
+            float alpha = elapsed / halfDuration;
+            flashPanel.color = Color.Lerp(targetColor, clearColor, alpha);
             yield return null;
         }
 
         // 완전히 투명하게
-        flashPanel.color = new Color(flashColor.r, flashColor.g, flashColor.b, 0f);
-
-        Debug.Log("Flash effect completed");
+        flashPanel.color = clearColor;
     }
 
     // 범용적인 플래시 효과 메소드 (다른 기능에서 호출 가능)
@@ -814,7 +929,8 @@ public class GameManager : MonoBehaviour
         {
             try
             {
-                playTimeDisplayText.text = "Time: " + FormatTime(playTime);
+                string formattedTime = FormatTime(playTime);
+                playTimeDisplayText.text = "Time: " + formattedTime;
             }
             catch (MissingReferenceException)
             {
@@ -822,14 +938,13 @@ public class GameManager : MonoBehaviour
             }
         }
     }
+    // 로그 제거 및 최적화된 업데이트 메서드
     private void UpdateLivesUI()
     {
-
         if (heartUI != null)
         {
             heartUI.UpdateHeartUI();
         }
- 
         else if (livesText != null)
         {
             livesText.text = "Lives: " + currentLives.ToString();
@@ -870,11 +985,25 @@ public class GameManager : MonoBehaviour
         return uiElement == null || uiElement.gameObject == null;
     }
 
+    // 포맷된 시간 문자열 캐싱 최적화
+    private string _cachedTimeFormat = "";
+    private float _lastFormattedTime = -1f;
+    
     private string FormatTime(float timeInSeconds)
     {
+        // 동일한 시간이면 캐싱된 문자열 반환
+        if (Mathf.Approximately(timeInSeconds, _lastFormattedTime) && !string.IsNullOrEmpty(_cachedTimeFormat))
+        {
+            return _cachedTimeFormat;
+        }
+        
+        // 새로운 시간 포맷팅
         int minutes = Mathf.FloorToInt(timeInSeconds / 60f);
         int seconds = Mathf.FloorToInt(timeInSeconds % 60f);
-        return string.Format("{0:00}:{1:00}", minutes, seconds);
+        _cachedTimeFormat = string.Format("{0:00}:{1:00}", minutes, seconds);
+        _lastFormattedTime = timeInSeconds;
+        
+        return _cachedTimeFormat;
     }
 
     private void HideGameOverPanel()
@@ -909,8 +1038,15 @@ public class GameManager : MonoBehaviour
     {
         Time.timeScale = 1f;
 
-        if (bgm != null)
+        // AudioManager를 사용하도록 변경
+        if (AudioManager.Instance != null && AudioManager.Instance.mainBGM != null)
         {
+            AudioManager.Instance.PlayBGM(AudioManager.Instance.mainBGM);
+        }
+        // 레거시 코드 유지 (이전 상황 대비)
+        else if (FindFirstObjectByType<AudioSource>() != null)
+        {
+            var bgm = FindFirstObjectByType<AudioSource>();
             bgm.pitch = 1f;
             bgm.volume = 0.7f;
             if (!bgm.isPlaying)
@@ -945,18 +1081,36 @@ public class GameManager : MonoBehaviour
             gameOverManager.ShowGameOverPanel();
         }
 
-        if (bgm != null)
+        // 오디오 재생 로직 수정
+        if (AudioManager.Instance != null)
         {
             gameOverCoroutine = StartCoroutine(SlowDownTimeAndMusic());
         }
         else
         {
-            gameOverCoroutine = StartCoroutine(SlowDownTime());
+            AudioSource audioSource = FindFirstObjectByType<AudioSource>();
+            if (audioSource != null)
+            {
+                gameOverCoroutine = StartCoroutine(SlowDownTimeAndMusic());
+            }
+            else
+            {
+                gameOverCoroutine = StartCoroutine(SlowDownTime());
+            }
         }
     }
 
     private void SaveGameStats()
     {
+        // 랜킹 시스템 활용
+        RankingManager rankingManager = FindFirstObjectByType<RankingManager>();
+        if (rankingManager != null)
+        {
+            // 플레이어 이름은 임시로 "Player"로 설정 (후에 입력 받는 기능 추가 가능)
+            rankingManager.AddScore("Player", score, playTime);
+        }
+        
+        // 레거시 시스템을 위한 배후
         int highScore = PlayerPrefs.GetInt("HighScore", 0);
         if (score > highScore)
         {
@@ -976,33 +1130,80 @@ public class GameManager : MonoBehaviour
     IEnumerator SlowDownTimeAndMusic()
     {
         float t = 0f;
-        float startPitch = bgm.pitch;
-        float startVolume = bgm.volume;
-
-        while (t < gameOverSlowDownDuration)
+        
+        // AudioManager와 호환
+        if (AudioManager.Instance != null)
         {
-            if (!isGameOverInProgress || this == null)
-                yield break;
-
-            t += Time.unscaledDeltaTime;
-            float progress = t / gameOverSlowDownDuration;
-            float easedProgress = EaseOutQuad(progress);
-
-            Time.timeScale = Mathf.Lerp(1f, finalTimeScale, easedProgress);
-
-            if (bgm != null)
+            float startPitch = AudioManager.Instance.GetBGMPitch();
+            float startVolume = AudioManager.Instance.GetBGMVolume();
+            
+            while (t < gameOverSlowDownDuration)
             {
-                bgm.pitch = Mathf.Lerp(startPitch, finalPitch, easedProgress);
-                bgm.volume = Mathf.Lerp(startVolume, 0f, easedProgress);
+                if (!isGameOverInProgress || this == null)
+                    yield break;
+
+                t += Time.unscaledDeltaTime;
+                float progress = t / gameOverSlowDownDuration;
+                float easedProgress = EaseOutQuad(progress);
+
+                Time.timeScale = Mathf.Lerp(1f, finalTimeScale, easedProgress);
+
+                AudioManager.Instance.SetBGMPitch(Mathf.Lerp(startPitch, finalPitch, easedProgress));
+                AudioManager.Instance.SetBGMVolumeDirectly(Mathf.Lerp(startVolume, 0f, easedProgress));
+
+                yield return null;
             }
 
-            yield return null;
+            Time.timeScale = 0f;
+            AudioManager.Instance.StopBGM();
         }
-
-        Time.timeScale = 0f;
-        if (bgm != null)
+        // 레거시 코드 유지
+        else
         {
-            bgm.Stop();
+            var bgm = FindFirstObjectByType<AudioSource>();
+            if (bgm != null)
+            {
+                float startPitch = bgm.pitch;
+                float startVolume = bgm.volume;
+
+                while (t < gameOverSlowDownDuration)
+                {
+                    if (!isGameOverInProgress || this == null)
+                        yield break;
+
+                    t += Time.unscaledDeltaTime;
+                    float progress = t / gameOverSlowDownDuration;
+                    float easedProgress = EaseOutQuad(progress);
+
+                    Time.timeScale = Mathf.Lerp(1f, finalTimeScale, easedProgress);
+
+                    bgm.pitch = Mathf.Lerp(startPitch, finalPitch, easedProgress);
+                    bgm.volume = Mathf.Lerp(startVolume, 0f, easedProgress);
+
+                    yield return null;
+                }
+
+                Time.timeScale = 0f;
+                bgm.Stop();
+            }
+            else
+            {
+                while (t < gameOverSlowDownDuration)
+                {
+                    if (!isGameOverInProgress || this == null)
+                        yield break;
+
+                    t += Time.unscaledDeltaTime;
+                    float progress = t / gameOverSlowDownDuration;
+                    float easedProgress = EaseOutQuad(progress);
+
+                    Time.timeScale = Mathf.Lerp(1f, finalTimeScale, easedProgress);
+
+                    yield return null;
+                }
+
+                Time.timeScale = 0f;
+            }
         }
 
         gameOverCoroutine = null;
@@ -1051,13 +1252,22 @@ public class GameManager : MonoBehaviour
         PlayItemCollectSound(); 
     }
 
+    // 스코어 UI 업데이트 최적화 - 멤버 변수에 캐싱
+    private string _lastScoreText = "";
+    
     private void UpdateScoreUI()
     {
         if (scoreText != null && !IsUIDestroyed(scoreText))
         {
             try
             {
-                scoreText.text = "Score: " + score.ToString();
+                // 동일한 점수면 업데이트 불필요
+                string newText = "Score: " + score.ToString();
+                if (newText != _lastScoreText)
+                {
+                    scoreText.text = newText;
+                    _lastScoreText = newText;
+                }
             }
             catch (MissingReferenceException)
             {
@@ -1078,11 +1288,11 @@ public class GameManager : MonoBehaviour
         isGameActive = false;
         isGameOverInProgress = false;
 
-        if (bgm != null)
+        // 오디오 관리 로직 수정
+        if (AudioManager.Instance != null)
         {
-            bgm.Stop();
-            bgm.pitch = 1f;
-            bgm.volume = 1f;
+            AudioManager.Instance.SetBGMPitch(1f);
+            AudioManager.Instance.SetBGMVolumeDirectly(AudioManager.Instance.bgmVolume);
         }
 
         string currentScene = SceneManager.GetActiveScene().name;
@@ -1101,11 +1311,11 @@ public class GameManager : MonoBehaviour
         isGameActive = false;
         isGameOverInProgress = false;
 
-        if (bgm != null)
+        // 오디오 관리 로직 수정
+        if (AudioManager.Instance != null)
         {
-            bgm.Stop();
-            bgm.pitch = 1f;
-            bgm.volume = 1f;
+            AudioManager.Instance.SetBGMPitch(1f);
+            AudioManager.Instance.SetBGMVolumeDirectly(AudioManager.Instance.bgmVolume);
         }
 
         SceneManager.LoadScene("StartScene");

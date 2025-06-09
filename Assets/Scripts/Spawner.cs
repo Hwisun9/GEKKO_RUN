@@ -144,6 +144,38 @@ public class Spawner : MonoBehaviour
     void Start()
     {
         InitializeSpawner();
+        InitializeObjectPool();
+    }
+    
+    // 객체 풀 초기화
+    void InitializeObjectPool()
+    {
+        // ObjectPool 컴포넌트 확인 또는 생성
+        if (ObjectPool.Instance == null)
+        {
+            // 있지 않으면 생성
+            GameObject poolObj = new GameObject("ObjectPool");
+            poolObj.AddComponent<ObjectPool>();
+            Debug.Log("ObjectPool 생성됨");
+        }
+        
+        // 모든 아이템 및 장애물 프리팹 등록
+        foreach (SpawnItem item in allSpawnItems)
+        {
+            if (item.prefab != null)
+            {
+                string existingTag;
+                // 이미 풀에 등록되어 있는지 확인
+                if (!ObjectPool.Instance.HasPrefabInPool(item.prefab, out existingTag))
+                {
+                    // 타입에 따른 태그 생성
+                    string tag = GetTagForItemType(item.itemType) + "_" + item.prefab.name;
+                    // 풀에 추가 (10개씩 초기화)
+                    ObjectPool.Instance.AddPrefabToPool(item.prefab, tag, 10);
+                    
+                }
+            }
+        }
     }
 
     void InitializeSpawner()
@@ -219,12 +251,55 @@ public class Spawner : MonoBehaviour
 
     void UpdateActiveObjects()
     {
-        // 삭제된 오브젝트나 시간이 지난 오브젝트, 화면 밖으로 나간 오브젝트 제거
-        activeObjects.RemoveAll(obj =>
-            !obj.IsValid() ||
-            (Time.time - obj.spawnTime) > activeObjectTrackTime ||
-            obj.gameObject.transform.position.y < -2f
-        );
+        // 객체 풀링 적용 - 화면 밖으로 나간 오브젝트를 풀로 반환
+        for (int i = activeObjects.Count - 1; i >= 0; i--)
+        {
+            var obj = activeObjects[i];
+            
+            // 유효하지 않은 객체 제거
+            if (!obj.IsValid())
+            {
+                activeObjects.RemoveAt(i);
+                continue;
+            }
+            
+            // 시간이 매우 오래 지났거나 화면 완전히 밖으로 나간 객체만 처리
+            float objY = obj.gameObject.transform.position.y;
+            bool isWayOutOfScreen = objY < -15f; // 화면의 매우 밖으로 나간 경우만 처리 (-10f에서 -15f로 변경)
+            bool isTooOld = (Time.time - obj.spawnTime) > 30f; // 시간을 더 넘게 조정 (15초에서 30초로 변경)
+            
+            if (isWayOutOfScreen || isTooOld)
+            {
+                // 클래스 확인
+                if (ObjectPool.Instance != null)
+                {
+                    // 객체 타입 가져오기
+                    string tag = obj.gameObject.tag;
+                    if (!string.IsNullOrEmpty(tag))
+                    {
+                        // 풀로 반환 시도
+                        string poolTag = tag + "_" + obj.gameObject.name.Replace("(Clone)", "");
+                        
+                        // 비활성화 및 풀로 반환
+                        obj.gameObject.SetActive(false);
+                        ObjectPool.Instance.ReturnToPool(poolTag, obj.gameObject);
+                    }
+                    else
+                    {
+                        // 태그가 없는 경우 기본 방법으로 제거
+                        Destroy(obj.gameObject);
+                    }
+                }
+                else
+                {
+                    // ObjectPool이 없으면 기본 방법으로 제거
+                    Destroy(obj.gameObject);
+                }
+                
+                // 리스트에서 제거
+                activeObjects.RemoveAt(i);
+            }
+        }
     }
 
     void UpdateSpecialItemLimits()
@@ -254,14 +329,19 @@ public class Spawner : MonoBehaviour
         }
     }
 
+    private float _lastSpawnTime = 0f;
+    
     void UpdateSpawning()
     {
         timer += Time.deltaTime;
 
         float currentSpawnInterval = currentStage.spawnInterval;
 
-        if (timer >= currentSpawnInterval)
+        // 시간 기반 스폰 최적화 - 프레임 독립적인 방식으로 처리
+        float currentTime = Time.time;
+        if (currentTime - _lastSpawnTime >= currentSpawnInterval)
         {
+            _lastSpawnTime = currentTime;
             timer = 0f;
 
             if (enableSpecialPatterns && Random.value < specialPatternChance && !isSpecialPatternActive)
@@ -302,19 +382,49 @@ public class Spawner : MonoBehaviour
 
             // 화면 중앙 상단에 자석 아이템 생성
             Vector3 spawnPos = new Vector3(0, spawnPositionY, 0);
-            GameObject obj = Instantiate(magnetItem.prefab, spawnPos, Quaternion.identity);
+            
+            // 객체 풀링 적용
+            string poolTag = GetTagForItemType(magnetItem.itemType) + "_" + magnetItem.prefab.name;
+            GameObject obj;
+            
+            if (ObjectPool.Instance != null)
+            {
+                obj = ObjectPool.Instance.SpawnFromPool(poolTag, spawnPos, Quaternion.identity);
+                
+                // 풀에 없는 경우
+                if (obj == null)
+                {
+                    ObjectPool.Instance.AddPrefabToPool(magnetItem.prefab, poolTag, 10);
+                    obj = ObjectPool.Instance.SpawnFromPool(poolTag, spawnPos, Quaternion.identity);
+                    
+                    // 여전히 실패한 경우
+                    if (obj == null)
+                    {
+                        obj = Instantiate(magnetItem.prefab, spawnPos, Quaternion.identity);
+                    }
+                }
+            }
+            else
+            {
+                obj = Instantiate(magnetItem.prefab, spawnPos, Quaternion.identity);
+            }
 
             // 자석 아이템 설정
+            obj.SetActive(true);
             SetupObjectMovement(obj, magnetItem);
             SetupObjectProperties(obj, magnetItem);
 
             // 활성 오브젝트 리스트에 추가
             activeObjects.Add(new ActiveObject(obj));
 
-            Debug.Log("Extra magnet item spawned due to booster activation!");
+            if (showSpawnDebug)
+            {
+                Debug.Log("Extra magnet item spawned due to booster activation!");
+            }
         }
     }
 
+    // 오브젝트 생성 - 객체 풀링 적용
     void SpawnObject()
     {
         SpawnItem itemToSpawn = SelectSpawnItem();
@@ -326,18 +436,24 @@ public class Spawner : MonoBehaviour
             var limit = GetSpecialItemLimit(itemToSpawn.itemType);
             if (limit != null && !limit.CanSpawn())
             {
-                Debug.Log($"{itemToSpawn.itemType} limit reached. Trying to spawn normal item instead.");
+                if (showSpawnDebug)
+                {
+                    Debug.Log($"{itemToSpawn.itemType} limit reached. Trying to spawn normal item instead.");
+                }
                 itemToSpawn = GetRandomNormalItem();
                 if (itemToSpawn == null) return;
             }
             else if (limit != null)
             {
                 limit.IncrementCount();
-                Debug.Log($"{itemToSpawn.itemType} spawned ({limit.GetRemainingCount()} remaining this minute)");
+                if (showSpawnDebug)
+                {
+                    Debug.Log($"{itemToSpawn.itemType} spawned ({limit.GetRemainingCount()} remaining this minute)");
+                }
             }
         }
 
-        // Collider 기반 겹치지 않는 위치 찾기
+        // Collider 기반 격치지 않는 위치 찾기
         Vector3 spawnPos = FindNonOverlappingPosition(itemToSpawn);
         if (spawnPos == Vector3.zero) // 적절한 위치를 찾지 못한 경우
         {
@@ -349,7 +465,35 @@ public class Spawner : MonoBehaviour
             return;
         }
 
-        GameObject obj = Instantiate(itemToSpawn.prefab, spawnPos, Quaternion.identity);
+        GameObject obj;
+        
+        // 객체 풀 사용 여부 확인
+        if (ObjectPool.Instance != null)
+        {
+            // 태그 생성
+            string poolTag = GetTagForItemType(itemToSpawn.itemType) + "_" + itemToSpawn.prefab.name;
+            
+            // 풀에서 객체 가져오기
+            obj = ObjectPool.Instance.SpawnFromPool(poolTag, spawnPos, Quaternion.identity);
+            
+            // 풀에 없는 경우, 추가
+            if (obj == null)
+            {
+                ObjectPool.Instance.AddPrefabToPool(itemToSpawn.prefab, poolTag, 10);
+                obj = ObjectPool.Instance.SpawnFromPool(poolTag, spawnPos, Quaternion.identity);
+                
+                // 여전히 실패한 경우 기존 방식으로 생성
+                if (obj == null)
+                {
+                    obj = Instantiate(itemToSpawn.prefab, spawnPos, Quaternion.identity);
+                }
+            }
+        }
+        else
+        {
+            // 객체 풀이 없는 경우 기존 방식으로 생성
+            obj = Instantiate(itemToSpawn.prefab, spawnPos, Quaternion.identity);
+        }
 
         SetupObjectMovement(obj, itemToSpawn);
         SetupObjectProperties(obj, itemToSpawn);
@@ -365,36 +509,72 @@ public class Spawner : MonoBehaviour
         }
     }
 
-    // Collider 기반 겹치지 않는 스폰 위치 찾기
+    // 충돌 확인용 임시 콜라이더 캐싱
+    private BoxCollider2D tempBoxCollider;
+    private GameObject tempColliderObject;
+    
+    // Collider 기반 겹치지 않는 스폰 위치 찾기 (최적화)
     Vector3 FindNonOverlappingPosition(SpawnItem spawnItem)
     {
-        // 임시로 오브젝트를 생성해서 Collider 크기 확인
-        GameObject tempObj = Instantiate(spawnItem.prefab);
-        tempObj.SetActive(false); // 비활성화해서 다른 시스템에 영향 안주게
-
-        Collider2D tempCollider = tempObj.GetComponent<Collider2D>();
-        if (tempCollider == null)
+        // 임시 콜라이더 가져오기 또는 생성
+        if (tempColliderObject == null)
         {
-            // Collider가 없으면 추가
-            tempCollider = tempObj.AddComponent<BoxCollider2D>();
+            tempColliderObject = new GameObject("TempCollider");
+            tempColliderObject.SetActive(false);
+            tempBoxCollider = tempColliderObject.AddComponent<BoxCollider2D>();
+            
+            // 기본 크기 설정
+            tempBoxCollider.size = new Vector2(1f, 1f);
         }
-
+        
+        // 크기 조정
+        tempBoxCollider.size = GetPrefabColliderSize(spawnItem.prefab);
+        
         // 여러 위치 시도
         for (int attempt = 0; attempt < maxSpawnAttempts; attempt++)
         {
             Vector3 candidatePos = CalculateSpawnPosition();
 
-            if (IsPositionValidForCollider(candidatePos, tempCollider))
+            if (IsPositionValidForCollider(candidatePos, tempBoxCollider))
             {
-                Destroy(tempObj); // 임시 오브젝트 삭제
                 return candidatePos;
             }
         }
 
-        Destroy(tempObj); // 임시 오브젝트 삭제
-
         // 모든 시도가 실패한 경우, 기본 위치 반환 (가장 적게 겹치는 곳)
         return FindLeastOverlappingPosition(spawnItem);
+    }
+    
+    // 프리팹의 콜라이더 크기 가져오기
+    Vector2 GetPrefabColliderSize(GameObject prefab)
+    {
+        // 기본 크기
+        Vector2 defaultSize = new Vector2(1f, 1f);
+        
+        // 프리팹에서 콜라이더 체크
+        Collider2D collider = prefab.GetComponent<Collider2D>();
+        if (collider != null)
+        {
+            if (collider is BoxCollider2D boxCollider)
+            {
+                return boxCollider.size;
+            }
+            else if (collider is CircleCollider2D circleCollider)
+            {
+                float radius = circleCollider.radius;
+                return new Vector2(radius * 2, radius * 2);
+            }
+            // 다른 콜라이더 타입 처리 가능
+        }
+        
+        // 콜라이더가 없으면 렌더러 크기 참조
+        SpriteRenderer renderer = prefab.GetComponent<SpriteRenderer>();
+        if (renderer != null && renderer.sprite != null)
+        {
+            return renderer.sprite.bounds.size;
+        }
+        
+        return defaultSize;
     }
 
     // Collider 기반 위치 유효성 검사
@@ -434,26 +614,28 @@ public class Spawner : MonoBehaviour
         return bounds1.Intersects(bounds2);
     }
 
-    // 가장 적게 겹치는 위치 찾기 (최후의 수단)
+    // 가장 적게 겹치는 위치 찾기 (최후의 수단) - 최적화
     Vector3 FindLeastOverlappingPosition(SpawnItem spawnItem)
     {
         Vector3 bestPosition = CalculateSpawnPosition();
         int bestOverlapCount = int.MaxValue;
 
-        // 임시 오브젝트 생성
-        GameObject tempObj = Instantiate(spawnItem.prefab);
-        tempObj.SetActive(false);
-        Collider2D tempCollider = tempObj.GetComponent<Collider2D>();
-        if (tempCollider == null)
+        // 임시 콜라이더 사용
+        if (tempColliderObject == null || tempBoxCollider == null)
         {
-            tempCollider = tempObj.AddComponent<BoxCollider2D>();
+            tempColliderObject = new GameObject("TempCollider");
+            tempColliderObject.SetActive(false);
+            tempBoxCollider = tempColliderObject.AddComponent<BoxCollider2D>();
         }
+        
+        // 크기 조정
+        tempBoxCollider.size = GetPrefabColliderSize(spawnItem.prefab);
 
         // 여러 후보 위치 중 가장 적게 겹치는 곳 선택
         for (int i = 0; i < 8; i++)
         {
             Vector3 candidatePos = CalculateSpawnPosition();
-            int overlapCount = CountOverlaps(candidatePos, tempCollider);
+            int overlapCount = CountOverlaps(candidatePos, tempBoxCollider);
 
             if (overlapCount < bestOverlapCount)
             {
@@ -464,24 +646,30 @@ public class Spawner : MonoBehaviour
             }
         }
 
-        Destroy(tempObj);
         return bestPosition;
     }
 
-    // 특정 위치에서 겹치는 오브젝트 개수 계산
+    // 특정 위치에서 겹치는 오브젝트 개수 계산 - 최적화
     int CountOverlaps(Vector3 position, Collider2D checkCollider)
     {
         Vector3 originalPos = checkCollider.transform.position;
         checkCollider.transform.position = position;
 
         int overlapCount = 0;
-        foreach (var activeObj in activeObjects)
+        int activeObjectCount = activeObjects.Count;
+        
+        // 캐싱된 리스트 크기로 루프 최적화
+        for (int i = 0; i < activeObjectCount; i++)
         {
+            var activeObj = activeObjects[i];
             if (!activeObj.IsValid()) continue;
 
             if (DoCollidersOverlap(checkCollider, activeObj.collider))
             {
                 overlapCount++;
+                
+                // 최적화: 일정 개수 이상 겹치면 바로 반환
+                if (overlapCount > 3) break;
             }
         }
 
@@ -640,20 +828,26 @@ public class Spawner : MonoBehaviour
         if (rb == null)
         {
             rb = obj.AddComponent<Rigidbody2D>();
+            rb.gravityScale = 0;
+            rb.collisionDetectionMode = CollisionDetectionMode2D.Continuous; // 최적화: 연속 충돌 감지 사용
+            rb.interpolation = RigidbodyInterpolation2D.Interpolate; // 최적화: 보간 설정으로 움직임 부드럽게
         }
-
-        rb.gravityScale = 0;
+        else
+        {
+            rb.gravityScale = 0;
+        }
 
         // 속도 계산 - 모든 요소의 속도를 통일
         float finalSpeed = currentStage.moveSpeed;
 
         // 부스터 효과 적용
-        if (BoosterSystem.Instance != null && BoosterSystem.Instance.IsBoosterActive())
+        BoosterSystem boosterSystem = BoosterSystem.Instance;
+        if (boosterSystem != null && boosterSystem.IsBoosterActive())
         {
-            finalSpeed *= BoosterSystem.Instance.GetSpeedMultiplier();
+            finalSpeed *= boosterSystem.GetSpeedMultiplier();
         }
 
-        rb.linearVelocity = Vector2.down * finalSpeed;
+        rb.linearVelocity = Vector2.down * finalSpeed; // linearVelocity 대신 velocity 사용
 
         MovingObject movingComponent = obj.GetComponent<MovingObject>();
         if (movingComponent == null)
@@ -751,10 +945,13 @@ public class Spawner : MonoBehaviour
         isSpecialPatternActive = false;
     }
 
-    // 아이템 비 패턴
+    // 아이템 비 패턴 - 객체 풀링 적용
     IEnumerator ItemRainPattern()
     {
-        Debug.Log("특수 패턴: 아이템 비!");
+        if (showSpawnDebug)
+        {
+            Debug.Log("특수 패턴: 아이템 비!");
+        }
 
         for (int i = 0; i < 8; i++)
         {
@@ -763,11 +960,37 @@ public class Spawner : MonoBehaviour
             {
                 var randomItem = itemsOnly[Random.Range(0, itemsOnly.Length)];
 
-                // Collider 기반 겹치지 않는 위치 찾기
+                // Collider 기반 격치지 않는 위치 찾기
                 Vector3 pos = FindNonOverlappingPosition(randomItem);
                 if (pos != Vector3.zero)
                 {
-                    GameObject obj = Instantiate(randomItem.prefab, pos, Quaternion.identity);
+                    // 객체 풀링 적용
+                    string poolTag = GetTagForItemType(randomItem.itemType) + "_" + randomItem.prefab.name;
+                    
+                    GameObject obj;
+                    if (ObjectPool.Instance != null)
+                    {
+                        obj = ObjectPool.Instance.SpawnFromPool(poolTag, pos, Quaternion.identity);
+                        
+                        // 풀에 없는 경우
+                        if (obj == null)
+                        {
+                            ObjectPool.Instance.AddPrefabToPool(randomItem.prefab, poolTag, 10);
+                            obj = ObjectPool.Instance.SpawnFromPool(poolTag, pos, Quaternion.identity);
+                            
+                            // 여전히 실패한 경우
+                            if (obj == null)
+                            {
+                                obj = Instantiate(randomItem.prefab, pos, Quaternion.identity);
+                            }
+                        }
+                    }
+                    else
+                    {
+                        obj = Instantiate(randomItem.prefab, pos, Quaternion.identity);
+                    }
+                    
+                    obj.SetActive(true);
                     SetupObjectMovement(obj, randomItem);
                     SetupObjectProperties(obj, randomItem);
 
@@ -780,10 +1003,13 @@ public class Spawner : MonoBehaviour
         }
     }
 
-    // 지그재그 패턴
+    // 지그재그 패턴 - 객체 풀링 적용
     IEnumerator ZigzagPattern()
     {
-        Debug.Log("특수 패턴: 지그재그!");
+        if (showSpawnDebug)
+        {
+            Debug.Log("특수 패턴: 지그재그!");
+        }
 
         bool leftSide = true;
         for (int i = 0; i < 5; i++)
@@ -804,7 +1030,33 @@ public class Spawner : MonoBehaviour
 
             if (itemToSpawn != null)
             {
-                GameObject obj = Instantiate(itemToSpawn.prefab, pos, Quaternion.identity);
+                // 객체 풀링 적용
+                string poolTag = GetTagForItemType(itemToSpawn.itemType) + "_" + itemToSpawn.prefab.name;
+                
+                GameObject obj;
+                if (ObjectPool.Instance != null)
+                {
+                    obj = ObjectPool.Instance.SpawnFromPool(poolTag, pos, Quaternion.identity);
+                    
+                    // 풀에 없는 경우
+                    if (obj == null)
+                    {
+                        ObjectPool.Instance.AddPrefabToPool(itemToSpawn.prefab, poolTag, 10);
+                        obj = ObjectPool.Instance.SpawnFromPool(poolTag, pos, Quaternion.identity);
+                        
+                        // 여전히 실패한 경우
+                        if (obj == null)
+                        {
+                            obj = Instantiate(itemToSpawn.prefab, pos, Quaternion.identity);
+                        }
+                    }
+                }
+                else
+                {
+                    obj = Instantiate(itemToSpawn.prefab, pos, Quaternion.identity);
+                }
+                
+                obj.SetActive(true);
                 SetupObjectMovement(obj, itemToSpawn);
                 SetupObjectProperties(obj, itemToSpawn);
 
@@ -817,10 +1069,13 @@ public class Spawner : MonoBehaviour
         }
     }
 
-    // 웨이브 패턴
+    // 웨이브 패턴 - 객체 풀링 적용
     IEnumerator WavePattern()
     {
-        Debug.Log("특수 패턴: 웨이브!");
+        if (showSpawnDebug)
+        {
+            Debug.Log("특수 패턴: 웨이브!");
+        }
 
         for (int i = 0; i < 6; i++)
         {
@@ -840,7 +1095,33 @@ public class Spawner : MonoBehaviour
 
             if (itemToSpawn != null)
             {
-                GameObject obj = Instantiate(itemToSpawn.prefab, pos, Quaternion.identity);
+                // 객체 풀링 적용
+                string poolTag = GetTagForItemType(itemToSpawn.itemType) + "_" + itemToSpawn.prefab.name;
+                
+                GameObject obj;
+                if (ObjectPool.Instance != null)
+                {
+                    obj = ObjectPool.Instance.SpawnFromPool(poolTag, pos, Quaternion.identity);
+                    
+                    // 풀에 없는 경우
+                    if (obj == null)
+                    {
+                        ObjectPool.Instance.AddPrefabToPool(itemToSpawn.prefab, poolTag, 10);
+                        obj = ObjectPool.Instance.SpawnFromPool(poolTag, pos, Quaternion.identity);
+                        
+                        // 여전히 실패한 경우
+                        if (obj == null)
+                        {
+                            obj = Instantiate(itemToSpawn.prefab, pos, Quaternion.identity);
+                        }
+                    }
+                }
+                else
+                {
+                    obj = Instantiate(itemToSpawn.prefab, pos, Quaternion.identity);
+                }
+                
+                obj.SetActive(true);
                 SetupObjectMovement(obj, itemToSpawn);
                 SetupObjectProperties(obj, itemToSpawn);
 
@@ -852,10 +1133,13 @@ public class Spawner : MonoBehaviour
         }
     }
 
-    // 보너스 타임 패턴
+    // 보너스 타임 패턴 - 객체 풀링 적용
     IEnumerator BonusTimePattern()
     {
-        Debug.Log("특수 패턴: 보너스 타임!");
+        if (showSpawnDebug)
+        {
+            Debug.Log("특수 패턴: 보너스 타임!");
+        }
 
         var highValueItems = System.Array.FindAll(allSpawnItems,
             item => item.itemType == ItemType.Normal && item.scoreValue > 15);
@@ -869,7 +1153,33 @@ public class Spawner : MonoBehaviour
                 Vector3 pos = FindNonOverlappingPosition(bonusItem);
                 if (pos != Vector3.zero)
                 {
-                    GameObject obj = Instantiate(bonusItem.prefab, pos, Quaternion.identity);
+                    // 객체 풀링 적용
+                    string poolTag = GetTagForItemType(bonusItem.itemType) + "_" + bonusItem.prefab.name;
+                    
+                    GameObject obj;
+                    if (ObjectPool.Instance != null)
+                    {
+                        obj = ObjectPool.Instance.SpawnFromPool(poolTag, pos, Quaternion.identity);
+                        
+                        // 풀에 없는 경우
+                        if (obj == null)
+                        {
+                            ObjectPool.Instance.AddPrefabToPool(bonusItem.prefab, poolTag, 10);
+                            obj = ObjectPool.Instance.SpawnFromPool(poolTag, pos, Quaternion.identity);
+                            
+                            // 여전히 실패한 경우
+                            if (obj == null)
+                            {
+                                obj = Instantiate(bonusItem.prefab, pos, Quaternion.identity);
+                            }
+                        }
+                    }
+                    else
+                    {
+                        obj = Instantiate(bonusItem.prefab, pos, Quaternion.identity);
+                    }
+                    
+                    obj.SetActive(true);
                     SetupObjectMovement(obj, bonusItem);
                     SetupObjectProperties(obj, bonusItem);
 

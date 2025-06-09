@@ -68,25 +68,44 @@ public class PlayerController : MonoBehaviour
         if (GameManager.Instance == null || !GameManager.Instance.isGameActive) return;
 
         HandleInput();
-        UpdateAnimator();
+        
+        // 애니메이터 업데이트는 매 프레임이 아닌 주기적으로 수행
+        if (Time.frameCount % 2 == 0) // 2프레임마다 한 번씩만 실행
+        {
+            UpdateAnimator();
+        }
     }
 
+    private Vector3 _cachedCameraPos;
+    private Camera _mainCamera;
+    
     void HandleInput()
     {
+        // Camera.main은 비용이 높은 호출이므로 캐싱
+        if (_mainCamera == null)
+        {
+            _mainCamera = Camera.main;
+            if (_mainCamera != null)
+            {
+                _cachedCameraPos = _mainCamera.transform.position;
+            }
+        }
+        
+        if (_mainCamera == null) return;
+        
         if (Input.touchCount > 0)
         {
             Touch touch = Input.GetTouch(0);
             if (touch.phase == TouchPhase.Began)
             {
-                Vector3 worldPos = Camera.main.ScreenToWorldPoint(touch.position);
+                Vector3 worldPos = _mainCamera.ScreenToWorldPoint(touch.position);
                 targetPosition = new Vector2(worldPos.x, worldPos.y);
                 isMoving = true;
             }
         }
-
-        if (Input.GetMouseButtonDown(0))
+        else if (Input.GetMouseButtonDown(0))
         {
-            Vector3 worldPos = Camera.main.ScreenToWorldPoint(Input.mousePosition);
+            Vector3 worldPos = _mainCamera.ScreenToWorldPoint(Input.mousePosition);
             targetPosition = new Vector2(worldPos.x, worldPos.y);
             isMoving = true;
         }
@@ -128,25 +147,29 @@ public class PlayerController : MonoBehaviour
 
     private void OnTriggerEnter2D(Collider2D other)
     {
-        Debug.Log("충돌 발생: " + other.gameObject.name + " / Tag: " + other.tag);
+        // Debug 로그를 개발 모드에서만 활성화하거나 제거
+        // Debug.Log("충돌 발생: " + other.gameObject.name + " / Tag: " + other.tag);
 
-        if (other.CompareTag("Item"))
+        string tag = other.tag;
+        
+        // CompareTag는 string 비교보다 효율적임
+        if (tag == "Item")
         {
             HandleItemCollision(other);
         }
-        else if (other.CompareTag("Obstacle"))
+        else if (tag == "Obstacle")
         {
             HandleObstacleCollision(other);
         }
-        else if (other.CompareTag("Magnet"))
+        else if (tag == "Magnet")
         {
             HandleMagnetCollision(other);
         }
-        else if (other.CompareTag("Mushroom"))
+        else if (tag == "Mushroom")
         {
             HandleMushroomCollision(other);
         }
-        else if (other.CompareTag("Hide"))
+        else if (tag == "Hide")
         {
             HandleHideCollision(other);
         }
@@ -154,135 +177,152 @@ public class PlayerController : MonoBehaviour
 
     void HandleItemCollision(Collider2D other)
     {
-        if (GameManager.Instance != null)
+        GameManager gameManager = GameManager.Instance;
+        if (gameManager != null)
         {
-            GameManager.Instance.AddScore(10);
+            gameManager.AddScore(10);
             // 아이템 수집 사운드만 재생하고 콤보 시스템은 여기서만 호출
-            GameManager.Instance.PlayItemCollectSound();
+            gameManager.PlayItemCollectSound();
         }
         
         // 콤보 시스템 업데이트
-        if (ComboSystem.Instance != null)
+        ComboSystem comboSystem = ComboSystem.Instance;
+        if (comboSystem != null)
         {
-            ComboSystem.Instance.OnItemCollected();
+            comboSystem.OnItemCollected();
         }
         
-        Destroy(other.gameObject);
+        // 객체 파괴 대신 비활성화 (재사용 가능하도록)
+        other.gameObject.SetActive(false);
     }
 
-    // 수정된 장애물 충돌 처리
+    // 최적화된 장애물 충돌 처리
     void HandleObstacleCollision(Collider2D other)
     {
+        BoosterSystem boosterSystem = BoosterSystem.Instance;
+        GameManager gameManager = GameManager.Instance;
+        ComboSystem comboSystem = ComboSystem.Instance;
+        
         // 부스터 활성화 중이면 장애물 파괴 및 콤보 증가
-        if (BoosterSystem.Instance != null && BoosterSystem.Instance.IsBoosterActive())
+        if (boosterSystem != null && boosterSystem.IsBoosterActive())
         {
-            Debug.Log("Booster active - Destroying obstacle and increasing combo!");
+            // Debug.Log("Booster active - Destroying obstacle and increasing combo!");
             
             // 장애물 파괴
-            BoosterSystem.Instance.DestroyObstacle(other.gameObject);
+            boosterSystem.DestroyObstacle(other.gameObject);
             
             // 콤보 증가 (아이템을 획득한 것처럼 처리)
-            if (ComboSystem.Instance != null)
+            if (comboSystem != null)
             {
-                ComboSystem.Instance.OnItemCollected();
+                comboSystem.OnItemCollected();
             }
             
             // 점수 추가 (일반 아이템 획득과 동일하게)
-            if (GameManager.Instance != null)
+            if (gameManager != null)
             {
-                GameManager.Instance.AddScore(10);
+                gameManager.AddScore(10);
                 // 사운드만 재생하고 콤보는 위에서 직접 호출
-                GameManager.Instance.PlayItemCollectSound();
+                gameManager.PlayItemCollectSound();
             }
             
             return; // 데미지 받지 않음
         }
 
         // 투명화 상태가 아니고 무적 상태가 아닐 때만 데미지
-        if (GameManager.Instance != null && 
+        if (gameManager != null && 
             !playerEffects.IsHideActive() && 
             !isInvincible)
         {
-            GameManager.Instance.TakeDamage(); // 라이프 감소
+            gameManager.TakeDamage(); // 라이프 감소
             
             // 콤보 리셋 (일반 상태에서 장애물과 충돌한 경우)
-            if (ComboSystem.Instance != null)
+            if (comboSystem != null)
             {
-                ComboSystem.Instance.ResetCombo();
+                comboSystem.ResetCombo();
             }
             
-            Destroy(other.gameObject);
+            // 객체 파괴 대신 비활성화 (재사용 가능하도록)
+            other.gameObject.SetActive(false);
         }
         else
         {
-            Debug.Log("Player passed through obstacle while protected!");
+            // Debug.Log("Player passed through obstacle while protected!");
         }
     }
 
     void HandleMagnetCollision(Collider2D other)
     {
-        if (GameManager.Instance != null)
+        GameManager gameManager = GameManager.Instance;
+        if (gameManager != null)
         {
-            GameManager.Instance.ActivateMagnet(); // 자석 효과 활성화
-            GameManager.Instance.AddScore(10); // 자석 아이템도 약간의 점수
-            GameManager.Instance.PlayItemCollectSound(); // 사운드만 재생
+            gameManager.ActivateMagnet(); // 자석 효과 활성화
+            gameManager.AddScore(10); // 자석 아이템도 약간의 점수
+            gameManager.PlayItemCollectSound(); // 사운드만 재생
         }
         
         // 콤보 시스템 업데이트
-        if (ComboSystem.Instance != null)
+        ComboSystem comboSystem = ComboSystem.Instance;
+        if (comboSystem != null)
         {
-            ComboSystem.Instance.OnItemCollected();
+            comboSystem.OnItemCollected();
         }
         
-        Destroy(other.gameObject);
+        // 객체 파괴 대신 비활성화 (재사용 가능하도록)
+        other.gameObject.SetActive(false);
     }
 
     void HandleMushroomCollision(Collider2D other)
     {
-        Debug.Log("Mushroom collected! Player will shrink.");
+        // Debug.Log("Mushroom collected! Player will shrink.");
 
         if (playerEffects != null)
         {
             playerEffects.ActivateShrink(); // 새로운 효과 시스템 사용
             
-            if (GameManager.Instance != null)
+            GameManager gameManager = GameManager.Instance;
+            if (gameManager != null)
             {
-                GameManager.Instance.AddScore(10); // 버프 아이템은 점수를 더 많이
-                GameManager.Instance.PlayItemCollectSound(); // 사운드만 재생
+                gameManager.AddScore(10); // 버프 아이템은 점수를 더 많이
+                gameManager.PlayItemCollectSound(); // 사운드만 재생
             }
         }
         
         // 콤보 시스템 업데이트
-        if (ComboSystem.Instance != null)
+        ComboSystem comboSystem = ComboSystem.Instance;
+        if (comboSystem != null)
         {
-            ComboSystem.Instance.OnItemCollected();
+            comboSystem.OnItemCollected();
         }
         
-        Destroy(other.gameObject);
+        // 객체 파괴 대신 비활성화 (재사용 가능하도록)
+        other.gameObject.SetActive(false);
     }
 
     void HandleHideCollision(Collider2D other)
     {
-        Debug.Log("Hide Potion collected! Player will become transparent.");
+        // Debug.Log("Hide Potion collected! Player will become transparent.");
 
         if (playerEffects != null)
         {
             playerEffects.ActivateHide(); // 새로운 효과 시스템 사용
             
-            if (GameManager.Instance != null)
+            GameManager gameManager = GameManager.Instance;
+            if (gameManager != null)
             {
-                GameManager.Instance.AddScore(10); // 더 강력한 효과이므로 점수도 더 높게
-                GameManager.Instance.PlayItemCollectSound(); // 사운드만 재생
+                gameManager.AddScore(10); // 더 강력한 효과이므로 점수도 더 높게
+                gameManager.PlayItemCollectSound(); // 사운드만 재생
             }
         }
         
         // 콤보 시스템 업데이트
-        if (ComboSystem.Instance != null)
+        ComboSystem comboSystem = ComboSystem.Instance;
+        if (comboSystem != null)
         {
-            ComboSystem.Instance.OnItemCollected();
+            comboSystem.OnItemCollected();
         }
         
-        Destroy(other.gameObject);
+        // 객체 파괴 대신 비활성화 (재사용 가능하도록)
+        other.gameObject.SetActive(false);
     }
 
     // 무적 상태 설정

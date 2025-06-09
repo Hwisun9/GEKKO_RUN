@@ -106,12 +106,12 @@ public class BoosterSystem : MonoBehaviour
         // 효과 적용
         ApplyBoosterEffects();
 
-        // 시각 효과 시작
-      //  if (boosterCoroutine != null)
+        // 시각 효과 부분 제거 - 기능만 남김
+        if (boosterCoroutine != null)
         {
             StopCoroutine(boosterCoroutine);
+            boosterCoroutine = null;
         }
-      //  boosterCoroutine = StartCoroutine(BoosterVisualEffect());
 
         // 사운드 재생
         PlaySound(boosterStartSound);

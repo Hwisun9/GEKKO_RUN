@@ -5,126 +5,262 @@ using TMPro;
 
 public class StartSceneManager : MonoBehaviour
 {
+    [Header("Buttons")]
     public Button startButton;
     public Button settingsButton;
     public Button highscoreButton;
+    public Button exitButton; // ì¶”ê°€
 
+    [Header("Panels")]
     public GameObject settingsPanel;
-    public GameObject highscorePanel;
+    public GameObject rankingPanel;
 
-    public TextMeshProUGUI highscoreText;
-    public Slider soundSlider;
+    [Header("Settings UI")]
+    public Slider bgmVolumeSlider;
+    public Slider sfxVolumeSlider;
 
+    [Header("Animation Objects")]
     public GameObject logoObject;
     public GameObject characterObject;
 
+    // ê´€ë¦¬ì ì°¸ì¡°
+    private AudioManager audioManager;
+    private RankingManager rankingManager;
+
     void Start()
     {
-        // ÆĞ³Î ÃÊ±â »óÅÂ ¼³Á¤
-        settingsPanel.SetActive(false);
-        highscorePanel.SetActive(false);
+        // ê´€ë¦¬ì ì°¸ì¡° ê°€ì ¸ì˜¤ê¸°
+        audioManager = AudioManager.Instance;
+        rankingManager = FindFirstObjectByType<RankingManager>();
 
-        // ¹öÆ° ¸®½º³Ê ¼³Á¤
-        startButton.onClick.AddListener(StartGame);
-        settingsButton.onClick.AddListener(ToggleSettings);
-        highscoreButton.onClick.AddListener(ToggleHighscore);
+        // íŒ¨ë„ ì´ˆê¸° ìƒíƒœ ì„¤ì • - ë°˜ë“œì‹œ ë¹„í™œì„±í™”ë¡œ ì‹œì‘
+        if (settingsPanel != null) settingsPanel.SetActive(false);
+        if (rankingPanel != null) rankingPanel.SetActive(false);
 
-        // ·Î°í¿Í Ä³¸¯ÅÍ ¾Ö´Ï¸ŞÀÌ¼Ç ½ÃÀÛ
+        // ë²„íŠ¼ ì´ë²¤íŠ¸ ë¦¬ìŠ¤ë„ˆ ì„¤ì •
+        if (startButton != null) startButton.onClick.AddListener(StartGame);
+        if (settingsButton != null) settingsButton.onClick.AddListener(ToggleSettingsPanel);
+        if (highscoreButton != null) highscoreButton.onClick.AddListener(ToggleRankingPanel);
+        if (exitButton != null) exitButton.onClick.AddListener(ExitGame);
+
+        // ì„¤ì • ì´ˆê¸°í™”
+        InitializeSettings();
+
+        // ë¡œê³ ì™€ ìºë¦­í„° ì• ë‹ˆë©”ì´ì…˜ ì‹œì‘
         StartLogoAnimation();
         StartCharacterAnimation();
-
-        // ÃÖ°í Á¡¼ö ·Îµå
-        UpdateHighscoreDisplay();
-
-        // »ç¿îµå º¼·ı ¼³Á¤ ·Îµå
-        float savedVolume = PlayerPrefs.GetFloat("SoundVolume", 0.75f);
-        soundSlider.value = savedVolume;
-        AudioListener.volume = savedVolume;
-
-        // »ç¿îµå ½½¶óÀÌ´õ ¸®½º³Ê ¼³Á¤
-        soundSlider.onValueChanged.AddListener(UpdateSoundVolume);
+        
+        // ì˜¤ë””ì˜¤ ì‹œì‘ - AudioManagerê°€ ìˆìœ¼ë©´ ê·¸ê²ƒì„ ì‚¬ìš©
+        if (AudioManager.Instance != null && AudioManager.Instance.mainBGM != null)
+        {
+            AudioManager.Instance.PlayBGM(AudioManager.Instance.mainBGM);
+        }
     }
 
-    public void StartGame()
+    private void InitializeSettings()
     {
-        // È¿°úÀ½ Àç»ı
-        PlayButtonSound();
+        // ì˜¤ë””ì˜¤ ê´€ë¦¬ìê°€ ì¡´ì¬í•˜ë©´ ìŠ¬ë¼ì´ë” ì´ˆê¸°í™”
+        if (audioManager != null)
+        {
+            // BGM ë³¼ë¥¨ ìŠ¬ë¼ì´ë” ì„¤ì •
+            if (bgmVolumeSlider != null)
+            {
+                bgmVolumeSlider.value = audioManager.bgmVolume;
+                bgmVolumeSlider.onValueChanged.AddListener(OnBGMVolumeChanged);
+            }
 
-        // °ÔÀÓ ¾ÀÀ¸·Î ÀüÈ¯
-        SceneManager.LoadScene("GameScene");
+            // SFX ë³¼ë¥¨ ìŠ¬ë¼ì´ë” ì„¤ì •
+            if (sfxVolumeSlider != null)
+            {
+                sfxVolumeSlider.value = audioManager.sfxVolume;
+                sfxVolumeSlider.onValueChanged.AddListener(OnSFXVolumeChanged);
+            }
+        }
+        else
+        {
+            Debug.LogWarning("AudioManager not found! Volume sliders will not function.");
+            
+            // ë ˆê±°ì‹œ ë°©ì‹ìœ¼ë¡œ ì„¤ì • - ì¶”í›„ ì‚­ì œ ì˜ˆì •
+            if (bgmVolumeSlider != null && sfxVolumeSlider != null)
+            {
+                float savedVolume = PlayerPrefs.GetFloat("SoundVolume", 0.75f);
+                bgmVolumeSlider.value = savedVolume;
+                sfxVolumeSlider.value = savedVolume;
+                AudioListener.volume = savedVolume;
+
+                bgmVolumeSlider.onValueChanged.AddListener(LegacyUpdateSoundVolume);
+                sfxVolumeSlider.onValueChanged.AddListener(LegacyUpdateSoundVolume);
+            }
+        }
     }
 
-    void ToggleSettings()
+    // BGM ë³¼ë¥¨ ë³€ê²½ ì´ë²¤íŠ¸
+    private void OnBGMVolumeChanged(float volume)
     {
-        PlayButtonSound();
-        settingsPanel.SetActive(!settingsPanel.activeSelf);
-        highscorePanel.SetActive(false);
+        if (audioManager != null)
+        {
+            audioManager.SetBGMVolume(volume);
+        }
     }
 
-    void ToggleHighscore()
+    // SFX ë³¼ë¥¨ ë³€ê²½ ì´ë²¤íŠ¸
+    private void OnSFXVolumeChanged(float volume)
     {
-        PlayButtonSound();
-        highscorePanel.SetActive(!highscorePanel.activeSelf);
-        settingsPanel.SetActive(false);
-        UpdateHighscoreDisplay();
+        if (audioManager != null)
+        {
+            audioManager.SetSFXVolume(volume);
+            
+            // ë³¼ë¥¨ ë³€ê²½ ì‹œ í…ŒìŠ¤íŠ¸ ì‚¬ìš´ë“œ ì¬ìƒ
+            audioManager.PlayButtonClick();
+        }
     }
 
-    void UpdateHighscoreDisplay()
-    {
-        int highscore = PlayerPrefs.GetInt("HighScore", 0);
-        highscoreText.text = "ÃÖ°í Á¡¼ö: " + highscore;
-    }
-
-    void UpdateSoundVolume(float volume)
+    // ë ˆê±°ì‹œ ì‚¬ìš´ë“œ ë³¼ë¥¨ ì—…ë°ì´íŠ¸ - ì¶”í›„ ì‚­ì œ ì˜ˆì •
+    private void LegacyUpdateSoundVolume(float volume)
     {
         AudioListener.volume = volume;
         PlayerPrefs.SetFloat("SoundVolume", volume);
         PlayerPrefs.Save();
     }
 
-    void PlayButtonSound()
+    public void StartGame()
     {
-        // ¹öÆ° Å¬¸¯ »ç¿îµå Àç»ı
-        GetComponent<AudioSource>().Play();
+        // íš¨ê³¼ìŒ ì¬ìƒ
+        PlayButtonSound();
+
+        // ê²Œì„ ì”¬ìœ¼ë¡œ ì „í™˜
+        SceneManager.LoadScene("GameScene");
     }
 
-    void StartLogoAnimation()
+    public void ToggleSettingsPanel()
     {
-        // ·Î°í ¾Ö´Ï¸ŞÀÌ¼Ç
-        LeanTween.moveY(logoObject, logoObject.transform.position.y + 0.5f, 1.5f)
-            .setEase(LeanTweenType.easeInOutSine)
-            .setLoopPingPong();
+        PlayButtonSound();
+        
+        if (settingsPanel != null)
+        {
+            bool isActive = !settingsPanel.activeSelf;
+            settingsPanel.SetActive(isActive);
+            
+            // ì„¤ì • íŒ¨ë„ì´ í™œì„±í™”ë˜ë©´ ëœí‚¹ íŒ¨ë„ì€ ë‹«ê¸°
+            if (isActive && rankingPanel != null && rankingPanel.activeSelf)
+            {
+                rankingPanel.SetActive(false);
+            }
+        }
     }
 
-    void StartCharacterAnimation()
+    public void ToggleRankingPanel()
     {
-        MoveCharacterRandomly(); // ÃÖÃÊ È£Ãâ
+        PlayButtonSound();
+
+        // ë­í‚¹ ê´€ë¦¬ìê°€ ìˆëŠ” ê²½ìš°
+        if (rankingManager != null)
+        {
+            rankingManager.ToggleRankingPanel();
+            
+            // ë­í‚¹ íŒ¨ë„ì´ í™œì„±í™”ë˜ë©´ ì„¤ì • íŒ¨ë„ì€ ë‹«ê¸°
+            if (rankingManager.rankingPanel != null && rankingManager.rankingPanel.activeSelf)
+            {
+                if (settingsPanel != null) settingsPanel.SetActive(false);
+            }
+        }
+        // ëœí‚¹ ê´€ë¦¬ìê°€ ì—†ëŠ” ê²½ìš° (ë ˆê±°ì‹œ ì½”ë“œ)
+        else if (rankingPanel != null)
+        {
+            bool isActive = !rankingPanel.activeSelf;
+            rankingPanel.SetActive(isActive);
+            
+            if (isActive)
+            {
+                // ì„¤ì • íŒ¨ë„ ë‹«ê¸°
+                if (settingsPanel != null) settingsPanel.SetActive(false);
+                
+                // ê³ ì „ ë°©ì‹ìœ¼ë¡œ í•˜ì´ìŠ¤ì½”ì–´ í‘œì‹œ
+                int highscore = PlayerPrefs.GetInt("HighScore", 0);
+                if (GameObject.Find("HighscoreText") != null)
+                {
+                    GameObject.Find("HighscoreText").GetComponent<TextMeshProUGUI>().text = "ìµœê³  ì ìˆ˜: " + highscore;
+                }
+            }
+        }
     }
 
-    void MoveCharacterRandomly()
+    public void ExitGame()
     {
+        PlayButtonSound();
+        
+        #if UNITY_EDITOR
+            UnityEditor.EditorApplication.isPlaying = false;
+        #else
+            Application.Quit();
+        #endif
+    }
+
+    private void PlayButtonSound()
+    {
+        // ì˜¤ë””ì˜¤ ê´€ë¦¬ìë¥¼ ì‚¬ìš©í•˜ì—¬ ë²„íŠ¼ í´ë¦­ ì‚¬ìš´ë“œ ì¬ìƒ
+        if (audioManager != null)
+        {
+            audioManager.PlayButtonClick();
+        }
+        // ë ˆê±°ì‹œ ì½”ë“œ - ì¶”í›„ ì‚­ì œ ì˜ˆì •
+        else
+        {
+            AudioSource source = GetComponent<AudioSource>();
+            if (source != null && source.clip != null)
+            {
+                source.Play();
+            }
+        }
+    }
+
+    private void StartLogoAnimation()
+    {
+        if (logoObject != null)
+        {
+            // ë¡œê³  ì• ë‹ˆë©”ì´ì…˜
+            LeanTween.moveY(logoObject, logoObject.transform.position.y + 0.5f, 1.5f)
+                .setEase(LeanTweenType.easeInOutSine)
+                .setLoopPingPong();
+        }
+    }
+
+    private void StartCharacterAnimation()
+    {
+        if (characterObject != null)
+        {
+            MoveCharacterRandomly(); // ì´ˆê¸° í˜¸ì¶œ
+        }
+    }
+
+    private void MoveCharacterRandomly()
+    {
+        if (characterObject == null) return;
+        
         Vector3 currentPos = characterObject.transform.position;
 
-        // Ä«¸Ş¶ó ¿ùµå ¿µ¿ª °è»ê
+        // ì¹´ë©”ë¼ ë·°í¬íŠ¸ ë²”ìœ„ í™•ì¸
         Camera cam = Camera.main;
+        if (cam == null) return;
+        
         float zDistance = Mathf.Abs(cam.transform.position.z - characterObject.transform.position.z);
 
         Vector3 bottomLeft = cam.ViewportToWorldPoint(new Vector3(0, 0, zDistance));
         Vector3 topRight = cam.ViewportToWorldPoint(new Vector3(1, 1, zDistance));
 
-        // Ä³¸¯ÅÍ°¡ ÀÌµ¿ °¡´ÉÇÑ ¹üÀ§ (¾ÈÂÊ¿¡ ¿©À¯ °ø°£µµ ÁÖ±â À§ÇØ)
-        float margin = 0.5f; // Ä³¸¯ÅÍ°¡ ³Ê¹« °æ°è¿¡ °¡Áö ¾Êµµ·Ï
+        // ìºë¦­í„°ê°€ ì´ë™ ê°€ëŠ¥í•œ ë²”ìœ„ ì„¤ì • (ê°€ì¥ìë¦¬ì— ë§¤ìš° ê°€ê¹ê²Œ ì£¼ê¸° í”¼í•¨)
+        float margin = 0.5f; // ìºë¦­í„°ê°€ ë„ˆë¬´ ê°€ì¥ìë¦¬ì— ê°€ì§€ ì•Šë„ë¡
         float minX = bottomLeft.x + margin;
         float maxX = topRight.x - margin;
         float minY = bottomLeft.y + margin;
         float maxY = topRight.y - margin;
 
-        // ·£´ı ¸ñÇ¥ À§Ä¡ °è»ê (Ä«¸Ş¶ó ºäÆ÷Æ® ¾ÈÂÊÀ¸·Î Á¦ÇÑ)
+        // ë‹¤ìŒ ëª©í‘œ ìœ„ì¹˜ ê³„ì‚° (ì¹´ë©”ë¼ ë·°í¬íŠ¸ ë‚´ë¶€ë¡œ ì œí•œ)
         float randomX = Random.Range(minX, maxX);
         float randomY = Random.Range(minY, maxY);
         Vector3 targetPos = new Vector3(randomX, randomY, currentPos.z);
 
-        // LeanTweenÀ¸·Î ÀÌµ¿
+        // LeanTweenìœ¼ë¡œ ì´ë™
         LeanTween.move(characterObject, targetPos, 1.5f)
             .setEase(LeanTweenType.easeInOutSine)
             .setOnComplete(() => MoveCharacterRandomly());
