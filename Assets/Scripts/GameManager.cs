@@ -1,4 +1,3 @@
-// GameManager.cs - È­¸é ¹øÂ½ÀÓ È¿°ú Ãß°¡
 using TMPro;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -19,7 +18,8 @@ public class GameManager : MonoBehaviour
     [Header("Life System")]
     public int maxLives = 3;
     public int currentLives = 3;
-    public TextMeshProUGUI livesText;
+    public TextMeshProUGUI livesText; // í…ìŠ¤íŠ¸ ëª©ìˆ¨ í‘œì‹œìš© (ì´ì œ ì‚¬ìš©í•˜ì§€ ì•ŠìŒ)
+    public HeartUISystem heartUI; // ìƒˆë¡œìš´ í•˜íŠ¸ UI ì‹œìŠ¤í…œ ì°¸ì¡°
 
     [Header("Skills")]
     public float destroySkillCooldown = 30f;
@@ -40,45 +40,44 @@ public class GameManager : MonoBehaviour
     public TextMeshProUGUI destroySkillCooldownText;
 
     [Header("Flash Effect")]
-    public Image flashPanel; // ¹øÂ½ÀÓ È¿°ú¿ë ÀÌ¹ÌÁö ÆĞ³Î
-    public Color flashColor = Color.white; // ¹øÂ½ÀÓ »ö»ó
-    public float flashDuration = 0.05f; // ¹øÂ½ÀÓ Áö¼Ó½Ã°£
+    public Image flashPanel;
+    public Color flashColor = Color.white;
+    public float flashDuration = 0.05f;
 
     [Header("Magnet Effect")]
     public MagnetEffectUI magnetEffectUI;
 
     [Header("Buff Effects")]
-    public float shrinkDuration = 8f; // ÀÛ¾ÆÁö´Â È¿°ú Áö¼Ó½Ã°£
-    public float shrinkScale = 0.1f; // ÀÛ¾ÆÁö´Â ºñÀ² (0.6 = 60% Å©±â)
-    public float hideDuration = 6f; // Åõ¸íÈ­ È¿°ú Áö¼Ó½Ã°£
-    public float hideAlpha = 0.2f; // Åõ¸íµµ (0.3 = 30% ºÒÅõ¸í)
+    public float shrinkDuration = 8f;
+    public float shrinkScale = 0.1f;
+    public float hideDuration = 6f;
+    public float hideAlpha = 0.2f;
 
     [Header("Animation Settings")]
-    public float shrinkAnimationDuration = 0.5f; // ÀÛ¾ÆÁö´Â ¾Ö´Ï¸ŞÀÌ¼Ç ½Ã°£
-    public float expandAnimationDuration = 0.5f; // Ä¿Áö´Â ¾Ö´Ï¸ŞÀÌ¼Ç ½Ã°£
-    public float warningBlinkDuration = 1f; // °æ°í ±ôºıÀÓ ½Ã°£
-    public int warningBlinkCount = 6; // ±ôºıÀÓ È½¼ö
+    public float shrinkAnimationDuration = 0.5f;
+    public float expandAnimationDuration = 0.5f;
+    public float warningBlinkDuration = 1f;
+    public int warningBlinkCount = 6;
 
-
-    // ¹öÇÁ »óÅÂ º¯¼öµé
+    // ë²„í”„ ìƒíƒœ ë³€ìˆ˜ë“¤
     private bool isShrinkActive = false;
     private float shrinkTimer = 0f;
     private bool isHideActive = false;
     private float hideTimer = 0f;
 
-    // ÇÃ·¹ÀÌ¾î °ü·Ã ÂüÁ¶
+    // í”Œë ˆì´ì–´ ê´€ë ¨ ë³€ìˆ˜
     private Transform playerTransform;
     private SpriteRenderer playerSpriteRenderer;
     private Collider2D playerCollider;
     private Vector3 originalPlayerScale;
     private Color originalPlayerColor;
 
-    // ¾Ö´Ï¸ŞÀÌ¼Ç °ü·Ã
+    // ì• ë‹ˆë©”ì´ì…˜ ë³€ìˆ˜
     private Coroutine shrinkAnimationCoroutine;
     private Coroutine hideAnimationCoroutine;
     private Coroutine boosterAnimationCoroutine;
 
-    // ¹öÇÁ UI ÂüÁ¶ (¼±ÅÃ»çÇ×)
+    // ë²„í”„ UI ê´€ë ¨
     [Header("Buff UI")]
     public GameObject shrinkBuffUI;
     public GameObject hideBuffUI;
@@ -181,28 +180,46 @@ public class GameManager : MonoBehaviour
             originalPlayerColor = playerSpriteRenderer.color;
         }
 
+        // í•˜íŠ¸ UI ì‹œìŠ¤í…œ ì´ˆê¸°í™”
+        InitializeHeartUI();
+
         StartGame();
     }
+    
+    // í•˜íŠ¸ UI ì‹œìŠ¤í…œ ì´ˆê¸°í™”
+    private void InitializeHeartUI()
+    {
+        // í•˜íŠ¸ UI ì‹œìŠ¤í…œì´ í• ë‹¹ë˜ì–´ ìˆì§€ ì•Šìœ¼ë©´ ì°¾ê¸°
+        if (heartUI == null)
+        {
+            heartUI = FindObjectOfType<HeartUISystem>();
+            
+            if (heartUI == null)
+            {
+                Debug.LogWarning("HeartUISystem not found! Lives will be displayed as text.");
+            }
+        }
+    }
 
-    // ¹øÂ½ÀÓ È¿°ú ÃÊ±âÈ­
+    // í”Œë˜ì‹œ íš¨ê³¼ ì´ˆê¸°í™”
     private void InitializeFlashEffect()
     {
         if (flashPanel == null)
         {
-            // ÀÚµ¿À¸·Î ¹øÂ½ÀÓ ÆĞ³Î »ı¼º
+            // ìë™ìœ¼ë¡œ í”Œë˜ì‹œ íŒ¨ë„ ìƒì„±
             CreateFlashPanel();
         }
         else
         {
-            // ±âÁ¸ ÆĞ³ÎÀÌ ÀÖÀ¸¸é ÃÊ±â ¼³Á¤
+            // ê¸°ì¡´ íŒ¨ë„ì´ ìˆìœ¼ë©´ ì´ˆê¸° ì„¤ì •
             SetupFlashPanel();
         }
     }
 
-    // ¹øÂ½ÀÓ ÆĞ³Î ÀÚµ¿ »ı¼º
+    // í”Œë˜ì‹œ íŒ¨ë„ ìë™ ìƒì„±
     private void CreateFlashPanel()
     {
-        // Canvas Ã£±â
+        // Canvas ì°¾ê¸°
         Canvas canvas = FindObjectOfType<Canvas>();
         if (canvas == null)
         {
@@ -210,14 +227,14 @@ public class GameManager : MonoBehaviour
             return;
         }
 
-        // ¹øÂ½ÀÓ ÆĞ³Î »ı¼º
+        // í”Œë˜ì‹œ íŒ¨ë„ ìƒì„±
         GameObject flashObject = new GameObject("FlashPanel");
         flashObject.transform.SetParent(canvas.transform, false);
 
-        // Image ÄÄÆ÷³ÍÆ® Ãß°¡
+        // Image ì»´í¬ë„ŒíŠ¸ ì¶”ê°€
         flashPanel = flashObject.AddComponent<Image>();
 
-        // RectTransform ¼³Á¤ (ÀüÃ¼ È­¸é)
+        // RectTransform ì„¤ì • (ì „ì²´ í™”ë©´)
         RectTransform rectTransform = flashObject.GetComponent<RectTransform>();
         rectTransform.anchorMin = Vector2.zero;
         rectTransform.anchorMax = Vector2.one;
@@ -229,18 +246,18 @@ public class GameManager : MonoBehaviour
         Debug.Log("Flash panel created automatically");
     }
 
-    // ¹øÂ½ÀÓ ÆĞ³Î ¼³Á¤
+    // í”Œë˜ì‹œ íŒ¨ë„ ì„¤ì •
     private void SetupFlashPanel()
     {
         if (flashPanel == null) return;
 
-        // »ö»ó ¼³Á¤
+        // ìƒ‰ìƒ ì„¤ì •
         flashPanel.color = new Color(flashColor.r, flashColor.g, flashColor.b, 0f);
 
-        // °¡Àå ¾Õ¿¡ Ç¥½ÃµÇµµ·Ï ¼³Á¤
+        // ë§¨ì• í‘œì‹œë˜ë„ë¡ ì„¤ì •
         flashPanel.transform.SetAsLastSibling();
 
-        // Raycast Target ºñÈ°¼ºÈ­ (Å¬¸¯ ¹æÇØ ¹æÁö)
+        // Raycast Target ë¹„í™œì„±í™” (í´ë¦­ ê´€ë ¨ ë¬¸ì œ)
         flashPanel.raycastTarget = false;
 
         Debug.Log("Flash panel setup completed");
@@ -263,7 +280,7 @@ public class GameManager : MonoBehaviour
 
         shrinkTimer -= Time.deltaTime;
 
-        // UI ¾÷µ¥ÀÌÆ®
+        // UI ì—…ë°ì´íŠ¸
         if (shrinkTimerText != null)
         {
             shrinkTimerText.text = Mathf.Ceil(shrinkTimer).ToString();
@@ -281,7 +298,7 @@ public class GameManager : MonoBehaviour
 
         hideTimer -= Time.deltaTime;
 
-        // UI ¾÷µ¥ÀÌÆ®
+        // UI ì—…ë°ì´íŠ¸
         if (hideTimerText != null)
         {
             hideTimerText.text = Mathf.Ceil(hideTimer).ToString();
@@ -293,20 +310,20 @@ public class GameManager : MonoBehaviour
         }
     }
 
-    // ÀÛ¾ÆÁö´Â È¿°ú È°¼ºÈ­
+    // ì‘ì•„ì§€ê¸° íš¨ê³¼ í™œì„±í™”
     public void ActivateShrink()
     {
         Debug.Log("Shrink effect activated!");
 
         if (isShrinkActive)
         {
-            // ÀÌ¹Ì È°¼ºÈ­µÈ °æ¿ì ½Ã°£ ¿¬Àå
+            // ì´ë¯¸ í™œì„±í™”ëœ ê²½ìš° ì‹œê°„ ì—°ì¥
             shrinkTimer += shrinkDuration;
             Debug.Log("Shrink effect extended! New duration: " + shrinkTimer);
         }
         else
         {
-            // »õ·Î È°¼ºÈ­
+            // ìƒˆë¡œ í™œì„±í™”
             isShrinkActive = true;
             shrinkTimer = shrinkDuration;
 
@@ -315,7 +332,7 @@ public class GameManager : MonoBehaviour
                 playerTransform.localScale = originalPlayerScale * shrinkScale;
             }
 
-            // UI È°¼ºÈ­
+            // UI í™œì„±í™”
             if (shrinkBuffUI != null)
             {
                 shrinkBuffUI.SetActive(true);
@@ -326,11 +343,11 @@ public class GameManager : MonoBehaviour
 
         PlaySFX(skillActivateSound);
 
-        // ¹øÂ½ÀÓ È¿°ú (Çª¸¥»öÀ¸·Î)
+        // í”Œë˜ì‹œ íš¨ê³¼ (í‘¸ë¥¸ìƒ‰ìœ¼ë¡œ)
         //TriggerFlashEffect(Color.cyan, 0.1f);
     }
 
-    // ÀÛ¾ÆÁö´Â È¿°ú ºñÈ°¼ºÈ­
+    // ì‘ì•„ì§€ê¸° íš¨ê³¼ ë¹„í™œì„±í™”
     private void DeactivateShrink()
     {
         isShrinkActive = false;
@@ -341,7 +358,7 @@ public class GameManager : MonoBehaviour
             playerTransform.localScale = originalPlayerScale;
         }
 
-        // UI ºñÈ°¼ºÈ­
+        // UI ë¹„í™œì„±í™”
         if (shrinkBuffUI != null)
         {
             shrinkBuffUI.SetActive(false);
@@ -350,20 +367,20 @@ public class GameManager : MonoBehaviour
         Debug.Log("Shrink effect ended - Player size restored");
     }
 
-    // Åõ¸íÈ­ È¿°ú È°¼ºÈ­
+    // íˆ¬ëª…í™” íš¨ê³¼ í™œì„±í™”
     public void ActivateHide()
     {
         Debug.Log("Hide effect activated!");
 
         if (isHideActive)
         {
-            // ÀÌ¹Ì È°¼ºÈ­µÈ °æ¿ì ½Ã°£ ¿¬Àå
+            // ì´ë¯¸ í™œì„±í™”ëœ ê²½ìš° ì‹œê°„ ì—°ì¥
             hideTimer += hideDuration;
             Debug.Log("Hide effect extended! New duration: " + hideTimer);
         }
         else
         {
-            // »õ·Î È°¼ºÈ­
+            // ìƒˆë¡œ í™œì„±í™”
             isHideActive = true;
             hideTimer = hideDuration;
 
@@ -374,14 +391,14 @@ public class GameManager : MonoBehaviour
                 playerSpriteRenderer.color = newColor;
             }
 
-            // Ãæµ¹ ºñÈ°¼ºÈ­ (Àå¾Ö¹°°úÀÇ Ãæµ¹¸¸)
+            // ì¶©ëŒ ë¹„í™œì„±í™” (ì¥ì• ë¬¼ê³¼ì˜ ì¶©ëŒë§Œ)
             if (playerCollider != null)
             {
-                // ·¹ÀÌ¾î³ª ÅÂ±×¸¦ ÀÌ¿ëÇØ¼­ Àå¾Ö¹°°úÀÇ Ãæµ¹¸¸ ºñÈ°¼ºÈ­
-                // ¶Ç´Â PlayerController¿¡¼­ Ãæµ¹ Ã³¸®¸¦ ¼öÁ¤ÇØ¾ß ÇÔ
+                // ë ˆì´ì–´ íƒœê·¸ë¥¼ ì´ìš©í•´ì„œ ì¥ì• ë¬¼ê³¼ì˜ ì¶©ëŒë§Œ ë¹„í™œì„±í™”
+                // ë˜ëŠ” PlayerControllerì—ì„œ ì¶©ëŒ ì²˜ë¦¬ë¥¼ êµ¬í˜„í•´ì•¼ í•¨
             }
 
-            // UI È°¼ºÈ­
+            // UI í™œì„±í™”
             if (hideBuffUI != null)
             {
                 hideBuffUI.SetActive(true);
@@ -392,11 +409,11 @@ public class GameManager : MonoBehaviour
 
         PlaySFX(skillActivateSound);
 
-        // ¹øÂ½ÀÓ È¿°ú (º¸¶ó»öÀ¸·Î)
+        // í”Œë˜ì‹œ íš¨ê³¼ (ë³´ë¼ìƒ‰ìœ¼ë¡œ)
         //TriggerFlashEffect(Color.magenta, 0.1f);
     }
 
-    // Åõ¸íÈ­ È¿°ú ºñÈ°¼ºÈ­
+    // íˆ¬ëª…í™” íš¨ê³¼ ë¹„í™œì„±í™”
     private void DeactivateHide()
     {
         isHideActive = false;
@@ -407,13 +424,13 @@ public class GameManager : MonoBehaviour
             playerSpriteRenderer.color = originalPlayerColor;
         }
 
-        // Ãæµ¹ È°¼ºÈ­
+        // ì¶©ëŒ í™œì„±í™”
         if (playerCollider != null)
         {
-            // Ãæµ¹ º¹¿ø
+            // ì¶©ëŒ ë³µêµ¬
         }
 
-        // UI ºñÈ°¼ºÈ­
+        // UI ë¹„í™œì„±í™”
         if (hideBuffUI != null)
         {
             hideBuffUI.SetActive(false);
@@ -424,25 +441,25 @@ public class GameManager : MonoBehaviour
 
     public void StartGame()
     {
-        // ÁøÇà ÁßÀÎ °ÔÀÓ¿À¹ö Ã³¸® Áß´Ü
+        // ì§„í–‰ ì¤‘ì¸ ê²Œì„ì˜¤ë²„ ì²˜ë¦¬ ì¤‘ë‹¨
         StopGameOverProcess();
 
-        // °ÔÀÓ »óÅÂ ÃÊ±âÈ­
+        // ê²Œì„ ìƒíƒœ ì´ˆê¸°í™”
         InitializeGameState();
 
-        // ÇÃ·¹ÀÌ¾î ´É·Â ÃÊ±âÈ­
+        // í”Œë ˆì´ì–´ ëŠ¥ë ¥ ì´ˆê¸°í™”
         ResetPlayerAbilities();
 
-        // ¹öÇÁ È¿°ú ÃÊ±âÈ­
+        // ë²„í”„ íš¨ê³¼ ì´ˆê¸°í™”
         ResetBuffEffects();
 
-        // ºÎ½ºÅÍ È¿°ú ÃÊ±âÈ­
+        // ë¶€ìŠ¤í„° íš¨ê³¼ ì´ˆê¸°í™”
         ResetBoosterEffects();
 
-        // UI ¹× ¿Àµğ¿À ¼³Á¤
+        // UI ë° ì˜¤ë””ì˜¤ ì„¤ì •
         SetupUIAndAudio();
 
-        // µğ¹ö±× ·Î±×
+        // ë””ë²„ê·¸ ë¡œê·¸
         LogGameStartInfo();
     }
 
@@ -468,10 +485,10 @@ public class GameManager : MonoBehaviour
 
     private void ResetPlayerAbilities()
     {
-        // ½ºÅ³ ÃÊ±âÈ­
+        // ìŠ¤í‚¬ ì´ˆê¸°í™”
         destroySkillTimer = 0f;
 
-        // ¸¶±×³İ È¿°ú ÃÊ±âÈ­
+        // ìì„ íš¨ê³¼ ì´ˆê¸°í™”
         if (isMagnetActive)
         {
             DeactivateMagnet();
@@ -482,29 +499,29 @@ public class GameManager : MonoBehaviour
 
     private void ResetBuffEffects()
     {
-        // ÀÛ¾ÆÁö±â È¿°ú ÃÊ±âÈ­
+        // ì‘ì•„ì§€ê¸° íš¨ê³¼ ì´ˆê¸°í™”
         if (isShrinkActive)
         {
             DeactivateShrink();
         }
 
-        // Åõ¸íÈ­ È¿°ú ÃÊ±âÈ­
+        // íˆ¬ëª…í™” íš¨ê³¼ ì´ˆê¸°í™”
         if (isHideActive)
         {
             DeactivateHide();
         }
     }
 
-    //  ºÎ½ºÅÍ È¿°ú ÃÊ±âÈ­
+    // ë¶€ìŠ¤í„° íš¨ê³¼ ì´ˆê¸°í™”
     private void ResetBoosterEffects()
     {
-        // ºÎ½ºÅÍ ½Ã½ºÅÛ ÃÊ±âÈ­
+        // ë¶€ìŠ¤í„° ì‹œìŠ¤í…œ ì´ˆê¸°í™”
         if (BoosterSystem.Instance != null)
         {
             BoosterSystem.Instance.ResetBooster();
         }
 
-        // ÄŞº¸ ½Ã½ºÅÛ ÃÊ±âÈ­
+        // ì½¤ë³´ ì‹œìŠ¤í…œ ì´ˆê¸°í™”
         if (ComboSystem.Instance != null)
         {
             ComboSystem.Instance.ResetCombo();
@@ -513,12 +530,12 @@ public class GameManager : MonoBehaviour
 
     private void SetupUIAndAudio()
     {
-        // UI ¾÷µ¥ÀÌÆ® ¹× ¼³Á¤
+        // UI ì—…ë°ì´íŠ¸ ë° ì„¤ì •
         UpdateAllUI();
         HideGameOverPanel();
         ShowComboUI(true);
 
-        // ¿Àµğ¿À ¹× ½Ã°£ ¼³Á¤ º¹¿ø
+        // íƒ€ì„ìŠ¤ì¼€ì¼ ë° ì˜¤ë””ì˜¤ ì„¤ì •
         ResetTimeAndAudio();
     }
 
@@ -569,18 +586,7 @@ public class GameManager : MonoBehaviour
                 }
             }
 
-            GameObject[] magnetItems = GameObject.FindGameObjectsWithTag("Magnet");
-            foreach (GameObject magnetItem in magnetItems)
-            {
-                float distance = Vector2.Distance(playerTransform.position, magnetItem.transform.position);
-                if (distance <= magnetRange)
-                {
-                    Vector2 direction = (playerTransform.position - magnetItem.transform.position).normalized;
-                    magnetItem.transform.Translate(direction * 8f * Time.deltaTime);
-                    itemsAffected++;
-                }
-            }
-
+            
             if (itemsAffected > 0 && Time.frameCount % 60 == 0)
             {
                 Debug.Log("Magnet pulling " + itemsAffected + " items");
@@ -636,7 +642,7 @@ public class GameManager : MonoBehaviour
         }
     }
 
-    // ÆÄ±« ½ºÅ³ - ¹øÂ½ÀÓ È¿°ú Ãß°¡
+    // íŒŒê´´ ìŠ¤í‚¬ - í”Œë˜ì‹œ íš¨ê³¼ ì¶”ê°€
     public void UseDestroySkill()
     {
         if (destroySkillTimer > 0 || !isGameActive)
@@ -650,16 +656,16 @@ public class GameManager : MonoBehaviour
 
         Debug.Log("Using destroy skill with flash effect!");
 
-        // È¿°úÀ½ Àç»ı
+        // íš¨ê³¼ìŒ ì¬ìƒ
         PlaySFX(skillActivateSound);
 
-        // Äğ´Ù¿î ½ÃÀÛ
+        // ì¿¨ë‹¤ìš´ ì„¤ì •
         destroySkillTimer = destroySkillCooldown;
 
-        // ¹øÂ½ÀÓ È¿°ú ½ÃÀÛ
+        // í”Œë˜ì‹œ íš¨ê³¼ ì‹¤í–‰
         StartCoroutine(FlashEffect());
 
-        // Àå¾Ö¹° ÆÄ±«
+        // ì¥ì• ë¬¼ íŒŒê´´
         GameObject[] obstacles = GameObject.FindGameObjectsWithTag("Obstacle");
         foreach (GameObject obstacle in obstacles)
         {
@@ -672,7 +678,7 @@ public class GameManager : MonoBehaviour
         UpdateDestroySkillUI();
     }
 
-    // ¹øÂ½ÀÓ È¿°ú ÄÚ·çÆ¾
+    // í”Œë˜ì‹œ íš¨ê³¼ ì½”ë£¨í‹´
     private IEnumerator FlashEffect()
     {
         if (flashPanel == null)
@@ -683,20 +689,20 @@ public class GameManager : MonoBehaviour
 
         Debug.Log("Flash effect started");
 
-        // ¹øÂ½ÀÌ±â ½ÃÀÛ (Åõ¸í -> ºÒÅõ¸í)
+        // í”Œë˜ì‹œê¸°ëŠ¥ (ì„œì„œíˆ -> ì„œì„œíˆ)
         float elapsed = 0f;
         float halfDuration = flashDuration * 0.5f;
 
-        // ÆäÀÌµå ÀÎ
+        // í˜ì´ë“œ ì¸
         while (elapsed < halfDuration)
         {
-            elapsed += Time.unscaledDeltaTime; // unscaledDeltaTime »ç¿ë (timeScale ¿µÇâ ¾È¹ŞÀ½)
+            elapsed += Time.unscaledDeltaTime; // unscaledDeltaTime ì‚¬ìš© (timeScale ì˜í–¥ ì•ˆë°›ìŒ)
             float alpha = Mathf.Lerp(0f, 1f, elapsed / halfDuration);
             flashPanel.color = new Color(flashColor.r, flashColor.g, flashColor.b, alpha);
             yield return null;
         }
 
-        // ÆäÀÌµå ¾Æ¿ô
+        // í˜ì´ë“œ ì•„ì›ƒ
         elapsed = 0f;
         while (elapsed < halfDuration)
         {
@@ -706,13 +712,13 @@ public class GameManager : MonoBehaviour
             yield return null;
         }
 
-        // ¿ÏÀüÈ÷ Åõ¸íÇÏ°Ô
+        // ì™„ì „íˆ íˆ¬ëª…í•˜ê²Œ
         flashPanel.color = new Color(flashColor.r, flashColor.g, flashColor.b, 0f);
 
         Debug.Log("Flash effect completed");
     }
 
-    // ¼öµ¿À¸·Î ¹øÂ½ÀÓ È¿°ú ½ÇÇà (´Ù¸¥ °÷¿¡¼­µµ »ç¿ë °¡´É)
+    // ë²”ìš©ì ì¸ í”Œë˜ì‹œ íš¨ê³¼ ë©”ì†Œë“œ (ë‹¤ë¥¸ ê¸°ëŠ¥ì—ì„œ í˜¸ì¶œ ê°€ëŠ¥)
     public void TriggerFlashEffect()
     {
         TriggerFlashEffect(flashColor, flashDuration);
@@ -730,7 +736,7 @@ public class GameManager : MonoBehaviour
         float elapsed = 0f;
         float halfDuration = duration * 0.5f;
 
-        // ÆäÀÌµå ÀÎ
+        // í˜ì´ë“œ ì¸
         while (elapsed < halfDuration)
         {
             elapsed += Time.unscaledDeltaTime;
@@ -739,7 +745,7 @@ public class GameManager : MonoBehaviour
             yield return null;
         }
 
-        // ÆäÀÌµå ¾Æ¿ô
+        // í˜ì´ë“œ ì•„ì›ƒ
         elapsed = 0f;
         while (elapsed < halfDuration)
         {
@@ -816,10 +822,15 @@ public class GameManager : MonoBehaviour
             }
         }
     }
-
     private void UpdateLivesUI()
     {
-        if (livesText != null)
+
+        if (heartUI != null)
+        {
+            heartUI.UpdateHeartUI();
+        }
+ 
+        else if (livesText != null)
         {
             livesText.text = "Lives: " + currentLives.ToString();
         }
@@ -901,7 +912,7 @@ public class GameManager : MonoBehaviour
         if (bgm != null)
         {
             bgm.pitch = 1f;
-            bgm.volume = 1f;
+            bgm.volume = 0.7f;
             if (!bgm.isPlaying)
             {
                 bgm.Play();
@@ -1037,7 +1048,7 @@ public class GameManager : MonoBehaviour
         if (!isGameActive) return;
 
         collectedItems++;
-        PlayItemCollectSound();
+        PlayItemCollectSound(); 
     }
 
     private void UpdateScoreUI()
@@ -1100,7 +1111,7 @@ public class GameManager : MonoBehaviour
         SceneManager.LoadScene("StartScene");
     }
 
-    // °ø°³ ¸Ş¼­µåµé
+    // ìœ í‹¸ ë©”ì†Œë“œë“¤
     public string GetFormattedPlayTime() => FormatTime(playTime);
     public float GetHighScoreTime() => PlayerPrefs.GetFloat("HighScoreTime", 0f);
     public float GetTotalPlayTime() => PlayerPrefs.GetFloat("TotalPlayTime", 0f);
@@ -1110,7 +1121,7 @@ public class GameManager : MonoBehaviour
     public bool IsDestroySkillReady() => destroySkillTimer <= 0;
     public bool IsMagnetActive() => isMagnetActive;
     public float GetMagnetTimeRemaining() => isMagnetActive ? magnetTimer : 0f;
-    // ¹öÇÁ »óÅÂ È®ÀÎ ¸Ş¼­µåµé
+    // ë²„í”„ ìƒíƒœ í™•ì¸ ë©”ì†Œë“œë“¤
     public bool IsShrinkActive() => isShrinkActive;
     public bool IsHideActive() => isHideActive;
     public float GetShrinkTimeRemaining() => isShrinkActive ? shrinkTimer : 0f;

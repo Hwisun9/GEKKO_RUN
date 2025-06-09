@@ -2,59 +2,64 @@ using UnityEngine;
 
 public class BackgroundRepeat : MonoBehaviour
 {
-    [Header("½ºÅ©·Ñ ¼³Á¤")]
-    public float baseScrollSpeed = 0.5f; // ±âº» ½ºÅ©·Ñ ¼Óµµ
-    public bool syncWithGameSpeed = true; // °ÔÀÓ ¼Óµµ¿Í µ¿±âÈ­ ¿©ºÎ
-    public float speedMultiplier = 0.1f; // °ÔÀÓ ¼Óµµ ¹İ¿µ ºñÀ²
+    [Header("ìŠ¤í¬ë¡¤ ì„¤ì •")]
+    public float baseScrollSpeed = 0.5f; // ê¸°ë³¸ ìŠ¤í¬ë¡¤ ì†ë„
+    public bool syncWithGameSpeed = true; // ê²Œì„ ì†ë„ì™€ ë™ê¸°í™” ì—¬ë¶€
+    public float speedMultiplier = 0.1f; // ê²Œì„ ì†ë„ ë°˜ì˜ ë¹„ìœ¨
 
     private Material thisMaterial;
     private float currentScrollSpeed;
 
-    //  ºÎ½ºÅÍ È¿°ú Àû¿ëÀ» À§ÇÑ ¿øº» ¼Óµµ ÀúÀå¿ë
-    [System.NonSerialized] // Inspector¿¡ Ç¥½ÃÇÏÁö ¾ÊÀ½
-    public float originalBaseScrollSpeed; // BoosterSystem¿¡¼­ Á¢±ÙÇÒ ¼ö ÀÖµµ·Ï public
+    // ë¶€ìŠ¤í„° íš¨ê³¼ ì´í›„ë¥¼ ìœ„í•œ ì›ë˜ ì†ë„ ì €ì¥
+    [System.NonSerialized] // Inspectorì— í‘œì‹œë˜ì§€ ì•ŠìŒ
+    public float originalBaseScrollSpeed; // BoosterSystemì—ì„œ ì ‘ê·¼í•  ìˆ˜ ìˆë„ë¡ public
 
     void Start()
     {
         thisMaterial = GetComponent<Renderer>().material;
         currentScrollSpeed = baseScrollSpeed;
 
-        //  ¿øº» ¼Óµµ ÀúÀå
+        // ì›ë˜ ì†ë„ ì €ì¥
         originalBaseScrollSpeed = baseScrollSpeed;
 
-        Debug.Log($" BackgroundRepeat initialized - Base speed: {baseScrollSpeed}");
+        Debug.Log($"BackgroundRepeat initialized - Base speed: {baseScrollSpeed}");
     }
 
     void Update()
     {
-        // °ÔÀÓ ¼Óµµ¿Í µ¿±âÈ­
+        // ê²Œì„ ì†ë„ì™€ ë™ê¸°í™”
         if (syncWithGameSpeed && GameManager.Instance != null)
         {
-            // GameManagerÀÇ ÇöÀç ³­ÀÌµµ³ª ¼Óµµ¸¦ ¹İ¿µ
+            // GameManagerì˜ í˜„ì¬ ë‚œì´ë„ì™€ ì†ë„ë¥¼ ë°˜ì˜
             float difficultyMultiplier = 1f;
 
-            // Spawner¿¡¼­ ³­ÀÌµµ Á¤º¸ °¡Á®¿À±â
-            Spawner spawner = FindObjectOfType<Spawner>();
+            // Spawnerì—ì„œ ë‚œì´ë„ ì •ë³´ ê°€ì ¸ì˜¤ê¸°
+            Spawner spawner = Object.FindFirstObjectByType<Spawner>();
             if (spawner != null)
             {
-                difficultyMultiplier = spawner.GetCurrentDifficulty();
+                // DifficultyStage ê°ì²´ì—ì„œ moveSpeed ê°’ì„ ì¶”ì¶œí•˜ì—¬ floatë¡œ ë³€í™˜
+                var currentDifficulty = spawner.GetCurrentDifficulty();
+                if (currentDifficulty != null)
+                {
+                    difficultyMultiplier = currentDifficulty.moveSpeed / 3.0f; // 3.0fëŠ” ê¸°ë³¸ ì†ë„ë¡œ ë‚˜ëˆ„ì–´ ë¹„ìœ¨ ê³„ì‚°
+                }
             }
 
-            //  ºÎ½ºÅÍ È¿°ú È®ÀÎ
+            // ë¶€ìŠ¤í„° íš¨ê³¼ í™•ì¸
             float boosterMultiplier = 1f;
             if (BoosterSystem.Instance != null && BoosterSystem.Instance.IsBoosterActive())
             {
                 boosterMultiplier = BoosterSystem.Instance.GetSpeedMultiplier();
             }
 
-            // ¹è°æ ½ºÅ©·Ñ ¼Óµµ °è»ê (³­ÀÌµµ + ºÎ½ºÅÍ È¿°ú)
+            // ìµœì¢… ìŠ¤í¬ë¡¤ ì†ë„ ê³„ì‚° (ë‚œì´ë„ + ë¶€ìŠ¤í„° íš¨ê³¼)
             currentScrollSpeed = baseScrollSpeed *
                                 (1f + (difficultyMultiplier - 1f) * speedMultiplier) *
                                 boosterMultiplier;
         }
         else
         {
-            //  µ¿±âÈ­¸¦ »ç¿ëÇÏÁö ¾Ê´õ¶óµµ ºÎ½ºÅÍ È¿°ú´Â Àû¿ë
+            // ë™ê¸°í™”ê°€ ë¹„í™œì„±í™” ëì§€ë§Œ ë¶€ìŠ¤í„° íš¨ê³¼ëŠ” ì ìš©
             float boosterMultiplier = 1f;
             if (BoosterSystem.Instance != null && BoosterSystem.Instance.IsBoosterActive())
             {
@@ -64,37 +69,37 @@ public class BackgroundRepeat : MonoBehaviour
             currentScrollSpeed = baseScrollSpeed * boosterMultiplier;
         }
 
-        // ¹è°æ ½ºÅ©·Ñ Àû¿ë
+        // ë°°ê²½ ìŠ¤í¬ë¡¤ ì ìš©
         Vector2 newOffset = thisMaterial.mainTextureOffset;
         newOffset.Set(0, newOffset.y + (currentScrollSpeed * Time.deltaTime));
         thisMaterial.mainTextureOffset = newOffset;
     }
 
-    //  ÇöÀç ½ºÅ©·Ñ ¼Óµµ È®ÀÎ (µğ¹ö±ë¿ë)
+    // í˜„ì¬ ìŠ¤í¬ë¡¤ ì†ë„ í™•ì¸ (ë””ë²„ê¹…)
     public float GetCurrentScrollSpeed() => currentScrollSpeed;
 
-    //  ºÎ½ºÅÍ È¿°ú Á÷Á¢ Àû¿ë (BoosterSystem¿¡¼­ È£Ãâ)
+    // ë¶€ìŠ¤í„° íš¨ê³¼ ì†ë„ ì„¤ì • (BoosterSystemì—ì„œ í˜¸ì¶œ)
     public void SetBoosterSpeed(float multiplier)
     {
         baseScrollSpeed = originalBaseScrollSpeed * multiplier;
-        Debug.Log($" Background speed boosted: {baseScrollSpeed} (x{multiplier})");
+        Debug.Log($"Background speed boosted: {baseScrollSpeed} (x{multiplier})");
     }
 
-    //  ºÎ½ºÅÍ È¿°ú ÇØÁ¦ (BoosterSystem¿¡¼­ È£Ãâ)
+    // ë¶€ìŠ¤í„° íš¨ê³¼ í•´ì œ (BoosterSystemì—ì„œ í˜¸ì¶œ)
     public void ResetBoosterSpeed()
     {
         baseScrollSpeed = originalBaseScrollSpeed;
-        Debug.Log($" Background speed reset: {baseScrollSpeed}");
+        Debug.Log($"Background speed reset: {baseScrollSpeed}");
     }
 
-    //  ¿øº» ¼Óµµ º¹¿ø (°ÔÀÓ ½ÃÀÛ ½Ã È£Ãâ)
+    // ì›ë˜ ì†ë„ ë³µì› (ê²Œì„ ì¬ì‹œì‘ ì‹œ í˜¸ì¶œ)
     public void ResetToOriginalSpeed()
     {
         baseScrollSpeed = originalBaseScrollSpeed;
         currentScrollSpeed = baseScrollSpeed;
     }
 
-    //  µğ¹ö±ë Á¤º¸
+    // ë””ë²„ê¹… ì •ë³´
     public string GetSpeedInfo()
     {
         return $"Base: {baseScrollSpeed:F2}, Current: {currentScrollSpeed:F2}, Original: {originalBaseScrollSpeed:F2}";

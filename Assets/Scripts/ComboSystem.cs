@@ -4,27 +4,27 @@ using UnityEngine.UI;
 
 public class ComboSystem : MonoBehaviour
 {
-    [Header("ÄŞº¸ ¼³Á¤")]
-    public float comboTimeLimit = 3f; // ÄŞº¸ Á¦ÇÑ½Ã°£
-    public int specialComboCount = 5; // Æ¯º° º¸³Ê½º ÄŞº¸ ¼ö
-    public int boosterComboCount = 10; //  ºÎ½ºÅÍ ¹ßµ¿ ÄŞº¸ ¼ö
+    [Header("ì½¤ë³´ ì„¤ì •")]
+    public float comboTimeLimit = 3f; // ì½¤ë³´ ì œí•œì‹œê°„
+    public int specialComboCount = 5; // íŠ¹ìˆ˜ ë³´ë„ˆìŠ¤ ì½¤ë³´ ìˆ˜
+    public int boosterComboCount = 10; // ë¶€ìŠ¤í„° í™œì„±í™” ì½¤ë³´ ìˆ˜
 
-    [Header("Á¡¼ö ¼³Á¤")]
-    public int baseItemScore = 10;
-    public int[] comboBonus = { 0, 10, 20, 30, 50 }; // ÄŞº¸º° Ãß°¡ Á¡¼ö
-    public int specialComboBonus = 50; // 5ÄŞº¸ Æ¯º° º¸³Ê½º
-    public int boosterComboBonus = 100; //  10ÄŞº¸ ºÎ½ºÅÍ º¸³Ê½º
+    [Header("ì ìˆ˜ ì„¤ì •")]
+    public int baseItemScore = 5; // ê¸°ë³¸ ì•„ì´í…œ ì ìˆ˜
+    public int comboMultiplier = 5; // ì½¤ë³´ë‹¹ ì¶”ê°€ ì ìˆ˜ ìŠ¹ìˆ˜
+    public int specialComboBonus = 50; // 5ì½¤ë³´ íŠ¹ìˆ˜ ë³´ë„ˆìŠ¤
+    public int boosterComboBonus = 100; // 10ì½¤ë³´ ë¶€ìŠ¤í„° ë³´ë„ˆìŠ¤
 
-    // ÇöÀç »óÅÂ
+    // ìƒíƒœ ë³€ìˆ˜
     private int currentCombo = 0;
     private float comboTimer = 0f;
     private bool isComboActive = false;
 
-    // ÀÌº¥Æ®
-    public System.Action<int> OnComboChanged; // ÄŞº¸ º¯°æ ½Ã
-    public System.Action<int> OnComboAchieved; // Æ¯Á¤ ÄŞº¸ ´Ş¼º ½Ã
-    public System.Action OnComboReset; // ÄŞº¸ ¸®¼Â ½Ã
-    public System.Action OnBoosterTriggered; //  ºÎ½ºÅÍ ¹ßµ¿ ½Ã
+    // ì´ë²¤íŠ¸
+    public System.Action<int> OnComboChanged; // ì½¤ë³´ ë³€ê²½ ì‹œ
+    public System.Action<int> OnComboAchieved; // íŠ¹ë³„ ì½¤ë³´ ë‹¬ì„± ì‹œ
+    public System.Action OnComboReset; // ì½¤ë³´ ë¦¬ì…‹ ì‹œ
+    public System.Action OnBoosterTriggered; // ë¶€ìŠ¤í„° í™œì„±í™” ì‹œ
 
     public static ComboSystem Instance;
 
@@ -52,101 +52,107 @@ public class ComboSystem : MonoBehaviour
         }
     }
 
-    // ¾ÆÀÌÅÛ È¹µæ ½Ã È£Ãâ
+    // ì•„ì´í…œ íšë“ ì‹œ í˜¸ì¶œ
     public void OnItemCollected()
     {
         currentCombo++;
         comboTimer = comboTimeLimit;
         isComboActive = true;
 
-        // Á¡¼ö °è»ê
+        // ì ìˆ˜ ê³„ì‚°
         int totalScore = CalculateScore();
         GameManager.Instance.AddScore(totalScore);
 
-        // ÀÌº¥Æ® ¹ß»ı
+        // ì´ë²¤íŠ¸ ë°œìƒ
         OnComboChanged?.Invoke(currentCombo);
         OnComboAchieved?.Invoke(currentCombo);
 
-        Debug.Log($"ÄŞº¸: {currentCombo}, È¹µæ Á¡¼ö: {totalScore}");
+        Debug.Log($"ì½¤ë³´: {currentCombo}, íšë“ ì ìˆ˜: {totalScore}");
 
-        //  10ÄŞº¸ ºÎ½ºÅÍ Ã¼Å©
-        if (currentCombo == boosterComboCount)
+        // 10ì˜ ë°°ìˆ˜ ì½¤ë³´ë§ˆë‹¤ ë¶€ìŠ¤í„° í™œì„±í™” (ë¶€ìŠ¤í„°ê°€ ì´ë¯¸ í™œì„±í™”ë˜ì–´ ìˆì§€ ì•Šì€ ê²½ìš°ì—ë§Œ)
+        if (currentCombo % boosterComboCount == 0)
         {
-            TriggerBooster();
+            // ë¶€ìŠ¤í„°ê°€ í˜„ì¬ í™œì„±í™”ë˜ì–´ ìˆëŠ”ì§€ í™•ì¸
+            bool isBoosterCurrentlyActive = BoosterSystem.Instance != null && BoosterSystem.Instance.IsBoosterActive();
+            
+            // ë¶€ìŠ¤í„°ê°€ í™œì„±í™”ë˜ì–´ ìˆì§€ ì•Šì€ ê²½ìš°ì—ë§Œ íŠ¸ë¦¬ê±°
+            if (!isBoosterCurrentlyActive)
+            {
+                Debug.Log($"{boosterComboCount}ì˜ ë°°ìˆ˜ ì½¤ë³´ ë‹¬ì„±! ë¶€ìŠ¤í„° í™œì„±í™”!");
+                TriggerBooster();
+            }
+            else
+            {
+                Debug.Log($"{boosterComboCount}ì˜ ë°°ìˆ˜ ì½¤ë³´ ë‹¬ì„±í–ˆìœ¼ë‚˜ ë¶€ìŠ¤í„°ê°€ ì´ë¯¸ í™œì„±í™”ë˜ì–´ ìˆì–´ ë¬´ì‹œí•¨");
+            }
         }
-        // 5ÄŞº¸ ´Ş¼º ½Ã Æ¯º° Ã³¸®
+        // 5ì˜ ë°°ìˆ˜ ì½¤ë³´ë§ˆë‹¤ íŠ¹ë³„ ë³´ë„ˆìŠ¤
         else if (currentCombo % specialComboCount == 0)
         {
             OnSpecialComboAchieved();
         }
     }
 
+    // ìƒˆë¡œìš´ ì ìˆ˜ ê³„ì‚° ë¡œì§
     int CalculateScore()
     {
+        // ê¸°ë³¸ ì ìˆ˜
         int score = baseItemScore;
-
-        // ÄŞº¸ º¸³Ê½º Ãß°¡
-        if (currentCombo <= comboBonus.Length)
-        {
-            score += comboBonus[currentCombo - 1];
-        }
-        else
-        {
-            score += comboBonus[comboBonus.Length - 1]; // ÃÖ´ë º¸³Ê½º
-        }
-
-        //  10ÄŞº¸ ºÎ½ºÅÍ º¸³Ê½º
-        if (currentCombo == boosterComboCount)
-        {
-            score += boosterComboBonus;
-        }
-        // 5ÄŞº¸ Æ¯º° º¸³Ê½º
-        else if (currentCombo % specialComboCount == 0)
+        
+        // ì½¤ë³´ì— ë”°ë¥¸ ì¶”ê°€ ì ìˆ˜ (ì„ í˜•ì ìœ¼ë¡œ ì¦ê°€)
+        int comboBonus = (currentCombo - 1) * comboMultiplier;
+        score += comboBonus;
+        
+        // íŠ¹ë³„ ì½¤ë³´ ë³´ë„ˆìŠ¤ (5ì˜ ë°°ìˆ˜)
+        if (currentCombo % specialComboCount == 0)
         {
             score += specialComboBonus;
         }
-
+        
+        // ë¶€ìŠ¤í„° ì½¤ë³´ ë³´ë„ˆìŠ¤ (10ì˜ ë°°ìˆ˜)
+        if (currentCombo % boosterComboCount == 0)
+        {
+            score += boosterComboBonus;
+        }
+        
         return score;
     }
 
-    //  ºÎ½ºÅÍ ¹ßµ¿
+    // ë¶€ìŠ¤í„° í™œì„±í™”
     void TriggerBooster()
     {
-        Debug.Log($" {boosterComboCount}ÄŞº¸ ´Ş¼º! ºÎ½ºÅÍ ¹ßµ¿!");
-
-        // BoosterSystem¿¡ ºÎ½ºÅÍ È°¼ºÈ­ ¿äÃ»
-        BoosterSystem boosterSystem = FindObjectOfType<BoosterSystem>();
-        if (boosterSystem != null)
+        // BoosterSystemì— ë¶€ìŠ¤í„° í™œì„±í™” ìš”ì²­
+        if (BoosterSystem.Instance != null)
         {
-            boosterSystem.ActivateBooster();
+            BoosterSystem.Instance.ActivateBooster();
         }
         else
         {
             Debug.LogWarning("BoosterSystem not found!");
         }
 
-        // ÀÌº¥Æ® ¹ß»ı
+        // ì´ë²¤íŠ¸ ë°œìƒ
         OnBoosterTriggered?.Invoke();
 
-        // Æ¯º° È¿°ú (¹øÂ½ÀÓ, »ç¿îµå µî)
+        // íŠ¹ìˆ˜ íš¨ê³¼ (í”Œë˜ì‹œ, ì‚¬ìš´ë“œ ë“±)
         if (GameManager.Instance != null)
         {
-            // È²±İ»ö ¹øÂ½ÀÓ È¿°ú
+            // í™©ê¸ˆìƒ‰ í”Œë˜ì‹œ íš¨ê³¼
             GameManager.Instance.TriggerFlashEffect(Color.yellow, 0.3f);
         }
     }
 
     void OnSpecialComboAchieved()
     {
-        Debug.Log($" {specialComboCount}ÄŞº¸ ´Ş¼º! Æ¯º° º¸³Ê½º!");
-        // Æ¯º° È¿°ú ½ÇÇà
+        Debug.Log($"{specialComboCount}ì˜ ë°°ìˆ˜ ì½¤ë³´ ë‹¬ì„±! íŠ¹ë³„ ë³´ë„ˆìŠ¤!");
+        // íŠ¹ìˆ˜ íš¨ê³¼ ì¶”ê°€
     }
 
     public void ResetCombo()
     {
         if (currentCombo > 0)
         {
-            Debug.Log($"ÄŞº¸ ¸®¼Â! (ÃÖ°í ÄŞº¸: {currentCombo})");
+            Debug.Log($"ì½¤ë³´ ë¦¬ì…‹! (ìµœê³  ì½¤ë³´: {currentCombo})");
             OnComboReset?.Invoke();
         }
 
@@ -156,9 +162,29 @@ public class ComboSystem : MonoBehaviour
         OnComboChanged?.Invoke(currentCombo);
     }
 
-    // ÇöÀç ÄŞº¸ »óÅÂ ¹İÈ¯
+    // í˜„ì¬ ì½¤ë³´ ì •ë³´ ë°˜í™˜
     public int GetCurrentCombo() => currentCombo;
     public float GetComboTimeLeft() => comboTimer;
     public float GetComboTimeRatio() => comboTimer / comboTimeLimit;
-    public bool IsBoosterComboReached() => currentCombo >= boosterComboCount; // 
+    public bool IsBoosterComboReached() => currentCombo >= boosterComboCount;
+    
+    // ì ìˆ˜ ê³„ì‚° ì •ë³´ë¥¼ ì™¸ë¶€ì—ì„œ ì ‘ê·¼í•  ìˆ˜ ìˆëŠ” ë©”ì„œë“œ
+    public int GetScoreForCombo(int combo)
+    {
+        int score = baseItemScore;
+        int comboBonus = (combo - 1) * comboMultiplier;
+        score += comboBonus;
+        
+        if (combo % specialComboCount == 0)
+        {
+            score += specialComboBonus;
+        }
+        
+        if (combo % boosterComboCount == 0)
+        {
+            score += boosterComboBonus;
+        }
+        
+        return score;
+    }
 }

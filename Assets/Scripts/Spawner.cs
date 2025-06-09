@@ -25,19 +25,51 @@ public enum ItemType
 }
 
 [System.Serializable]
-public class SpawnWave
+public class DifficultyStage
 {
-    public string waveName;
-    public float duration = 10f;
-    public float spawnInterval = 2f;
-    public float itemChance = 0.3f;
-    public float magnetChance = 0.05f;
-    public float buffItemChance = 0.08f;
-    public float speedMultiplier = 1f;
-    public SpawnItem[] availableItems;
+    public string stageName = "Stage";
+    public float startTime = 0f;        // 시작 시간 (초)
+    public float itemChance = 0.7f;     // 아이템 스폰 확률
+    public float obstacleChance = 0.3f; // 장애물 스폰 확률
+    public float spawnInterval = 2.0f;  // 스폰 간격
+    public float moveSpeed = 3.0f;      // 이동 속도
 }
 
-//  활성 오브젝트 정보를 저장하는 클래스 (Collider 기반)
+[System.Serializable]
+public class SpecialItemLimit
+{
+    public ItemType itemType;
+    public int maxCountPerMinute = 3; // 분당 최대 스폰 개수
+    private int currentCount = 0;
+    private float resetTimer = 0f;
+
+    public void Update(float deltaTime)
+    {
+        resetTimer += deltaTime;
+        if (resetTimer >= 60f)
+        {
+            resetTimer = 0f;
+            currentCount = 0;
+        }
+    }
+
+    public bool CanSpawn()
+    {
+        return currentCount < maxCountPerMinute;
+    }
+
+    public void IncrementCount()
+    {
+        currentCount++;
+    }
+
+    public int GetRemainingCount()
+    {
+        return maxCountPerMinute - currentCount;
+    }
+}
+
+// 활성 오브젝트 정보를 저장하는 클래스 (Collider 기반)
 [System.Serializable]
 public class ActiveObject
 {
@@ -75,44 +107,39 @@ public class Spawner : MonoBehaviour
     public float spawnPositionY = 6f;
     public float baseSpawnSpeed = 3f;
 
-    [Header(" Collider 기반 겹침 방지 설정")]
-    public int maxSpawnAttempts = 15; // 최대 스폰 시도 횟수
-    public float activeObjectTrackTime = 3f; // 활성 오브젝트 추적 시간 (초)
-    public float colliderPadding = 0.1f; // Collider 간 최소 여백 (아주 작은 값)
-    public bool showSpawnDebug = false; // 디버그 표시 여부
-    public LayerMask spawnCheckLayers = -1; // 체크할 레이어 (기본: 모든 레이어)
+    [Header("난이도 스테이지")]
+    public DifficultyStage[] difficultyStages;
+    private DifficultyStage currentStage;
+    private int currentStageIndex = 0;
 
-    [Header("웨이브 시스템")]
-    public SpawnWave[] waves;
-    public bool useWaveSystem = true;
+    [Header("특별 아이템 제한")]
+    public SpecialItemLimit[] specialItemLimits;
+    private Dictionary<ItemType, SpecialItemLimit> itemLimitMap = new Dictionary<ItemType, SpecialItemLimit>();
 
-    [Header("난이도 조절")]
-    public float difficultyIncreaseRate = 0.1f;
-    public float maxDifficultyMultiplier = 3f;
+    [Header("부스터 시스템 설정")]
+    public bool giveExtraMagnetOnBoost = true; // 부스터 활성화 시 자석 아이템 제공 여부
+    public float boostMagnetDelay = 1.5f;      // 부스터 활성화 후 자석 아이템 제공 지연 시간
+
+    [Header("Collider 기반 겹침 방지 설정")]
+    public int maxSpawnAttempts = 15;
+    public float activeObjectTrackTime = 3f;
+    public float colliderPadding = 0.1f;
+    public bool showSpawnDebug = false;
+    public LayerMask spawnCheckLayers = -1;
 
     [Header("특수 패턴")]
     public bool enableSpecialPatterns = true;
     public float specialPatternChance = 0.1f;
 
-    [Header("아이템 생성 확률")]
-    public float magnetItemChance = 0.08f;
-    public float mushroomItemChance = 0.05f;
-    public float hideItemChance = 0.03f;
-
-    // 기존 변수들
+    // 상태 변수
     private float timer = 0f;
     private float gameTime = 0f;
-    private int currentWaveIndex = 0;
-    private float waveTimer = 0f;
-    private float currentDifficultyMultiplier = 1f;
-    private SpawnWave currentWave;
     private bool isSpecialPatternActive = false;
     private Dictionary<ItemType, int> itemTypeCount = new Dictionary<ItemType, int>();
-
-    //  Collider 기반 겹침 방지 관련 변수들
     private List<ActiveObject> activeObjects = new List<ActiveObject>();
     private int successfulSpawns = 0;
     private int failedSpawns = 0;
+    private bool boosterWasActive = false;
 
     void Start()
     {
@@ -121,18 +148,39 @@ public class Spawner : MonoBehaviour
 
     void InitializeSpawner()
     {
-        if (useWaveSystem && waves.Length > 0)
+        // 특별 아이템 제한 초기화
+        itemLimitMap.Clear();
+        foreach (var limit in specialItemLimits)
         {
-            currentWave = waves[0];
+            itemLimitMap[limit.itemType] = limit;
         }
 
+        // 아이템 타입 카운트 초기화
         InitializeItemTypeCount();
-        ValidateSpawnerSetup();
 
-        //  활성 오브젝트 리스트 초기화
+        // 난이도 스테이지 정렬 및 초기화
+        System.Array.Sort(difficultyStages, (a, b) => a.startTime.CompareTo(b.startTime));
+        if (difficultyStages.Length > 0)
+        {
+            currentStage = difficultyStages[0];
+        }
+        else
+        {
+            // 기본 스테이지 생성
+            currentStage = new DifficultyStage
+            {
+                stageName = "Default",
+                itemChance = 0.7f,
+                obstacleChance = 0.3f,
+                spawnInterval = 2.0f,
+                moveSpeed = baseSpawnSpeed
+            };
+        }
+
+        // 활성 오브젝트 리스트 초기화
         activeObjects = new List<ActiveObject>();
 
-        Debug.Log($" Collider-based spawn system initialized - Padding: {colliderPadding}");
+        Debug.Log("Spawner initialized with " + difficultyStages.Length + " difficulty stages");
     }
 
     void InitializeItemTypeCount()
@@ -152,42 +200,16 @@ public class Spawner : MonoBehaviour
         }
     }
 
-    void ValidateSpawnerSetup()
-    {
-        Debug.Log("=== Spawner Setup Validation ===");
-
-        foreach (var kvp in itemTypeCount)
-        {
-            Debug.Log($"{kvp.Key}: {kvp.Value} items");
-
-            if (kvp.Value == 0)
-            {
-                Debug.LogWarning($"No {kvp.Key} items found in allSpawnItems array!");
-            }
-        }
-
-        if (itemTypeCount[ItemType.Normal] == 0)
-        {
-            Debug.LogError("No normal items found! Game may not work properly.");
-        }
-
-        if (itemTypeCount[ItemType.Obstacle] == 0)
-        {
-            Debug.LogError("No obstacles found! Game may be too easy.");
-        }
-
-        Debug.Log($"Total spawn items configured: {allSpawnItems.Length}");
-    }
-
     void Update()
     {
         if (GameManager.Instance == null || !GameManager.Instance.isGameActive) return;
 
         UpdateGameTime();
-        UpdateActiveObjects(); //  활성 오브젝트 업데이트
-        UpdateWaveSystem();
-        UpdateDifficulty();
+        UpdateActiveObjects();
+        UpdateSpecialItemLimits();
+        UpdateDifficultyStage();
         UpdateSpawning();
+        CheckBoosterStatus();
     }
 
     void UpdateGameTime()
@@ -195,7 +217,6 @@ public class Spawner : MonoBehaviour
         gameTime += Time.deltaTime;
     }
 
-    //  활성 오브젝트 리스트 업데이트
     void UpdateActiveObjects()
     {
         // 삭제된 오브젝트나 시간이 지난 오브젝트, 화면 밖으로 나간 오브젝트 제거
@@ -206,34 +227,38 @@ public class Spawner : MonoBehaviour
         );
     }
 
-    void UpdateWaveSystem()
+    void UpdateSpecialItemLimits()
     {
-        if (!useWaveSystem || waves.Length == 0) return;
-
-        waveTimer += Time.deltaTime;
-
-        if (waveTimer >= currentWave.duration)
+        // 각 특별 아이템 제한 업데이트
+        foreach (var limit in specialItemLimits)
         {
-            currentWaveIndex = (currentWaveIndex + 1) % waves.Length;
-            currentWave = waves[currentWaveIndex];
-            waveTimer = 0f;
-
-            Debug.Log($"웨이브 변경: {currentWave.waveName}");
+            limit.Update(Time.deltaTime);
         }
     }
 
-    void UpdateDifficulty()
+    void UpdateDifficultyStage()
     {
-        currentDifficultyMultiplier = 1f + (gameTime * difficultyIncreaseRate);
-        currentDifficultyMultiplier = Mathf.Min(currentDifficultyMultiplier, maxDifficultyMultiplier);
+        // 현재 게임 시간에 맞는 난이도 스테이지 업데이트
+        for (int i = difficultyStages.Length - 1; i >= 0; i--)
+        {
+            if (gameTime >= difficultyStages[i].startTime)
+            {
+                if (currentStageIndex != i)
+                {
+                    currentStageIndex = i;
+                    currentStage = difficultyStages[i];
+                    Debug.Log("Difficulty stage changed to: " + currentStage.stageName);
+                }
+                break;
+            }
+        }
     }
 
     void UpdateSpawning()
     {
         timer += Time.deltaTime;
 
-        float currentSpawnInterval = useWaveSystem ? currentWave.spawnInterval : 2f;
-        currentSpawnInterval /= currentDifficultyMultiplier;
+        float currentSpawnInterval = currentStage.spawnInterval;
 
         if (timer >= currentSpawnInterval)
         {
@@ -250,19 +275,76 @@ public class Spawner : MonoBehaviour
         }
     }
 
+    void CheckBoosterStatus()
+    {
+        // 부스터 상태 확인
+        bool isBoosterActive = BoosterSystem.Instance != null && BoosterSystem.Instance.IsBoosterActive();
+
+        // 부스터가 새로 활성화되었을 때 자석 아이템 추가 제공
+        if (isBoosterActive && !boosterWasActive && giveExtraMagnetOnBoost)
+        {
+            StartCoroutine(SpawnExtraMagnetAfterDelay());
+        }
+
+        boosterWasActive = isBoosterActive;
+    }
+
+    IEnumerator SpawnExtraMagnetAfterDelay()
+    {
+        // 부스터 활성화 후 약간의 딜레이 후 자석 아이템 생성
+        yield return new WaitForSeconds(boostMagnetDelay);
+
+        var magnetItems = System.Array.FindAll(allSpawnItems, item => item.itemType == ItemType.Magnet);
+        if (magnetItems.Length > 0)
+        {
+            // 자석 아이템 중 하나를 무작위로 선택
+            SpawnItem magnetItem = magnetItems[Random.Range(0, magnetItems.Length)];
+
+            // 화면 중앙 상단에 자석 아이템 생성
+            Vector3 spawnPos = new Vector3(0, spawnPositionY, 0);
+            GameObject obj = Instantiate(magnetItem.prefab, spawnPos, Quaternion.identity);
+
+            // 자석 아이템 설정
+            SetupObjectMovement(obj, magnetItem);
+            SetupObjectProperties(obj, magnetItem);
+
+            // 활성 오브젝트 리스트에 추가
+            activeObjects.Add(new ActiveObject(obj));
+
+            Debug.Log("Extra magnet item spawned due to booster activation!");
+        }
+    }
+
     void SpawnObject()
     {
         SpawnItem itemToSpawn = SelectSpawnItem();
         if (itemToSpawn == null) return;
 
-        //  Collider 기반 겹치지 않는 위치 찾기
+        // 특별 아이템 제한 확인
+        if (IsSpecialItem(itemToSpawn.itemType))
+        {
+            var limit = GetSpecialItemLimit(itemToSpawn.itemType);
+            if (limit != null && !limit.CanSpawn())
+            {
+                Debug.Log($"{itemToSpawn.itemType} limit reached. Trying to spawn normal item instead.");
+                itemToSpawn = GetRandomNormalItem();
+                if (itemToSpawn == null) return;
+            }
+            else if (limit != null)
+            {
+                limit.IncrementCount();
+                Debug.Log($"{itemToSpawn.itemType} spawned ({limit.GetRemainingCount()} remaining this minute)");
+            }
+        }
+
+        // Collider 기반 겹치지 않는 위치 찾기
         Vector3 spawnPos = FindNonOverlappingPosition(itemToSpawn);
         if (spawnPos == Vector3.zero) // 적절한 위치를 찾지 못한 경우
         {
             failedSpawns++;
             if (showSpawnDebug)
             {
-                Debug.LogWarning($" Failed to find non-overlapping position for {itemToSpawn.itemType}");
+                Debug.LogWarning($"Failed to find non-overlapping position for {itemToSpawn.itemType}");
             }
             return;
         }
@@ -272,18 +354,18 @@ public class Spawner : MonoBehaviour
         SetupObjectMovement(obj, itemToSpawn);
         SetupObjectProperties(obj, itemToSpawn);
 
-        //  활성 오브젝트 리스트에 추가
+        // 활성 오브젝트 리스트에 추가
         activeObjects.Add(new ActiveObject(obj));
 
         successfulSpawns++;
 
         if (showSpawnDebug)
         {
-            Debug.Log($" Spawned: {obj.name} at {spawnPos} (Active objects: {activeObjects.Count})");
+            Debug.Log($"Spawned: {obj.name} at {spawnPos} (Active objects: {activeObjects.Count})");
         }
     }
 
-    //  Collider 기반 겹치지 않는 스폰 위치 찾기
+    // Collider 기반 겹치지 않는 스폰 위치 찾기
     Vector3 FindNonOverlappingPosition(SpawnItem spawnItem)
     {
         // 임시로 오브젝트를 생성해서 Collider 크기 확인
@@ -315,7 +397,7 @@ public class Spawner : MonoBehaviour
         return FindLeastOverlappingPosition(spawnItem);
     }
 
-    //  Collider 기반 위치 유효성 검사
+    // Collider 기반 위치 유효성 검사
     bool IsPositionValidForCollider(Vector3 position, Collider2D checkCollider)
     {
         // 임시 위치로 이동
@@ -339,7 +421,7 @@ public class Spawner : MonoBehaviour
         return true;
     }
 
-    //  두 Collider가 겹치는지 확인
+    // 두 Collider가 겹치는지 확인
     bool DoCollidersOverlap(Collider2D collider1, Collider2D collider2)
     {
         // Bounds 확장 (padding 적용)
@@ -386,7 +468,7 @@ public class Spawner : MonoBehaviour
         return bestPosition;
     }
 
-    //  특정 위치에서 겹치는 오브젝트 개수 계산
+    // 특정 위치에서 겹치는 오브젝트 개수 계산
     int CountOverlaps(Vector3 position, Collider2D checkCollider)
     {
         Vector3 originalPos = checkCollider.transform.position;
@@ -409,99 +491,115 @@ public class Spawner : MonoBehaviour
 
     SpawnItem SelectSpawnItem()
     {
-        List<SpawnItem> availableItems = GetAvailableItems();
+        // 난이도 스테이지 기반 아이템 선택
+        float itemChance = currentStage.itemChance;
+        float obstacleChance = currentStage.obstacleChance;
 
-        SpawnItem selectedItem = null;
-
-        selectedItem = TrySelectBuffItem(availableItems);
-        if (selectedItem != null) return selectedItem;
-
-        selectedItem = TrySelectMagnetItem(availableItems);
-        if (selectedItem != null) return selectedItem;
-
-        selectedItem = SelectNormalOrObstacle(availableItems);
-
-        return selectedItem;
-    }
-
-    List<SpawnItem> GetAvailableItems()
-    {
-        if (useWaveSystem && currentWave.availableItems.Length > 0)
+        // 난이도에 따라 아이템/장애물 선택
+        float randomValue = Random.value;
+        
+        if (randomValue < itemChance)
         {
-            return new List<SpawnItem>(currentWave.availableItems);
+            // 일반 아이템 또는 특별 아이템 선택
+            float specialItemChance = 0.2f; // 특별 아이템 확률 (20%)
+            
+            if (Random.value < specialItemChance && HasAvailableSpecialItem())
+            {
+                return SelectSpecialItem();
+            }
+            else
+            {
+                return GetRandomNormalItem();
+            }
         }
         else
         {
-            return new List<SpawnItem>(allSpawnItems);
+            // 장애물 선택
+            return GetRandomObstacleItem();
         }
     }
 
-    SpawnItem TrySelectBuffItem(List<SpawnItem> availableItems)
+    // 사용 가능한 특별 아이템이 있는지 확인
+    bool HasAvailableSpecialItem()
     {
-        float buffChance = useWaveSystem ? currentWave.buffItemChance : (mushroomItemChance + hideItemChance);
-
-        if (Random.value < buffChance)
+        foreach (var limit in specialItemLimits)
         {
-            var buffItems = availableItems.FindAll(item =>
-                item.itemType == ItemType.Mushroom || item.itemType == ItemType.Hide);
-
-            if (buffItems.Count > 0)
+            if (limit.CanSpawn())
             {
-                Debug.Log(" Spawning buff item!");
-                return SelectByWeight(buffItems);
+                // 해당 타입의 아이템이 있는지 확인
+                if (allSpawnItems.Any(item => item.itemType == limit.itemType))
+                {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    // 특별 아이템 선택
+    SpawnItem SelectSpecialItem()
+    {
+        // 제한에 걸리지 않은 특별 아이템 타입 수집
+        List<ItemType> availableTypes = new List<ItemType>();
+        foreach (var limit in specialItemLimits)
+        {
+            if (limit.CanSpawn())
+            {
+                availableTypes.Add(limit.itemType);
             }
         }
 
-        return null;
-    }
-
-    SpawnItem TrySelectMagnetItem(List<SpawnItem> availableItems)
-    {
-        float magnetChance = useWaveSystem ? currentWave.magnetChance : magnetItemChance;
-
-        if (Random.value < magnetChance)
+        if (availableTypes.Count == 0)
         {
-            var magnetItems = availableItems.FindAll(item => item.itemType == ItemType.Magnet);
-            if (magnetItems.Count > 0)
+            return GetRandomNormalItem();
+        }
+
+        // 랜덤하게 특별 아이템 타입 선택
+        ItemType selectedType = availableTypes[Random.Range(0, availableTypes.Count)];
+        
+        // 해당 타입의 아이템 중에서 선택
+        List<SpawnItem> itemsOfType = new List<SpawnItem>();
+        foreach (var item in allSpawnItems)
+        {
+            if (item.itemType == selectedType)
             {
-                Debug.Log(" Spawning magnet item!");
-                return SelectByWeight(magnetItems);
+                itemsOfType.Add(item);
             }
         }
 
-        return null;
+        if (itemsOfType.Count == 0)
+        {
+            return GetRandomNormalItem();
+        }
+
+        return SelectByWeight(itemsOfType);
     }
 
-    SpawnItem SelectNormalOrObstacle(List<SpawnItem> availableItems)
+    // 무작위 일반 아이템 가져오기
+    SpawnItem GetRandomNormalItem()
     {
-        availableItems.RemoveAll(item =>
-            item.itemType == ItemType.Magnet ||
-            item.itemType == ItemType.Mushroom ||
-            item.itemType == ItemType.Hide);
-
-        float itemChance = useWaveSystem ? currentWave.itemChance : 0.3f;
-        bool shouldSpawnItem = Random.value < itemChance;
-
-        if (shouldSpawnItem)
+        var normalItems = System.Array.FindAll(allSpawnItems, item => item.itemType == ItemType.Normal);
+        if (normalItems.Length == 0)
         {
-            availableItems.RemoveAll(item => item.itemType != ItemType.Normal);
-            Debug.Log(" Spawning normal item!");
-        }
-        else
-        {
-            availableItems.RemoveAll(item => item.itemType != ItemType.Obstacle);
-            Debug.Log(" Spawning obstacle!");
-        }
-
-        if (availableItems.Count == 0)
-        {
-            Debug.LogWarning("No items available after filtering!");
+            Debug.LogWarning("No normal items available!");
             return null;
         }
-
-        return SelectByWeight(availableItems);
+        return SelectByWeight(new List<SpawnItem>(normalItems));
     }
 
+    // 무작위 장애물 가져오기
+    SpawnItem GetRandomObstacleItem()
+    {
+        var obstacleItems = System.Array.FindAll(allSpawnItems, item => item.itemType == ItemType.Obstacle);
+        if (obstacleItems.Length == 0)
+        {
+            Debug.LogWarning("No obstacle items available!");
+            return null;
+        }
+        return SelectByWeight(new List<SpawnItem>(obstacleItems));
+    }
+
+    // 가중치에 따른 아이템 선택
     SpawnItem SelectByWeight(List<SpawnItem> items)
     {
         var validItems = items.FindAll(item => Random.value < item.spawnChance);
@@ -528,12 +626,14 @@ public class Spawner : MonoBehaviour
         return validItems[validItems.Count - 1];
     }
 
+    // 스폰 위치 계산
     Vector3 CalculateSpawnPosition()
     {
         float randomX = Random.Range(-spawnRangeX, spawnRangeX);
         return new Vector3(randomX, spawnPositionY, 0f);
     }
 
+    // 오브젝트 이동 설정
     void SetupObjectMovement(GameObject obj, SpawnItem spawnItem)
     {
         Rigidbody2D rb = obj.GetComponent<Rigidbody2D>();
@@ -544,18 +644,10 @@ public class Spawner : MonoBehaviour
 
         rb.gravityScale = 0;
 
-        // 속도 계산
-        float finalSpeed = baseSpawnSpeed;
-        finalSpeed *= spawnItem.speedMultiplier;
+        // 속도 계산 - 모든 요소의 속도를 통일
+        float finalSpeed = currentStage.moveSpeed;
 
-        if (useWaveSystem)
-        {
-            finalSpeed *= currentWave.speedMultiplier;
-        }
-
-        finalSpeed *= currentDifficultyMultiplier;
-
-        //  부스터 효과 적용
+        // 부스터 효과 적용
         if (BoosterSystem.Instance != null && BoosterSystem.Instance.IsBoosterActive())
         {
             finalSpeed *= BoosterSystem.Instance.GetSpeedMultiplier();
@@ -563,10 +655,15 @@ public class Spawner : MonoBehaviour
 
         rb.linearVelocity = Vector2.down * finalSpeed;
 
-        MovingObject movingComponent = obj.AddComponent<MovingObject>();
+        MovingObject movingComponent = obj.GetComponent<MovingObject>();
+        if (movingComponent == null)
+        {
+            movingComponent = obj.AddComponent<MovingObject>();
+        }
         movingComponent.speed = finalSpeed;
     }
 
+    // 오브젝트 속성 설정
     void SetupObjectProperties(GameObject obj, SpawnItem spawnItem)
     {
         string tagToSet = GetTagForItemType(spawnItem.itemType);
@@ -589,6 +686,7 @@ public class Spawner : MonoBehaviour
         collider.isTrigger = true;
     }
 
+    // 아이템 타입에 따른 태그 가져오기
     string GetTagForItemType(ItemType itemType)
     {
         switch (itemType)
@@ -609,7 +707,25 @@ public class Spawner : MonoBehaviour
         }
     }
 
-    // 특수 패턴들 (Collider 기반 겹침 방지 적용)
+    // 특별 아이템 제한 가져오기
+    SpecialItemLimit GetSpecialItemLimit(ItemType itemType)
+    {
+        if (itemLimitMap.ContainsKey(itemType))
+        {
+            return itemLimitMap[itemType];
+        }
+        return null;
+    }
+
+    // 특별 아이템 여부 확인
+    bool IsSpecialItem(ItemType itemType)
+    {
+        return itemType == ItemType.Magnet || 
+               itemType == ItemType.Mushroom || 
+               itemType == ItemType.Hide;
+    }
+
+    // 특수 패턴들
     IEnumerator ExecuteSpecialPattern()
     {
         isSpecialPatternActive = true;
@@ -635,10 +751,10 @@ public class Spawner : MonoBehaviour
         isSpecialPatternActive = false;
     }
 
-    //  수정된 특수 패턴들 (Collider 기반 겹침 방지 적용)
+    // 아이템 비 패턴
     IEnumerator ItemRainPattern()
     {
-        Debug.Log(" 특수 패턴: 아이템 비!");
+        Debug.Log("특수 패턴: 아이템 비!");
 
         for (int i = 0; i < 8; i++)
         {
@@ -664,9 +780,10 @@ public class Spawner : MonoBehaviour
         }
     }
 
+    // 지그재그 패턴
     IEnumerator ZigzagPattern()
     {
-        Debug.Log(" 특수 패턴: 지그재그!");
+        Debug.Log("특수 패턴: 지그재그!");
 
         bool leftSide = true;
         for (int i = 0; i < 5; i++)
@@ -674,43 +791,71 @@ public class Spawner : MonoBehaviour
             float xPos = leftSide ? -spawnRangeX * 0.8f : spawnRangeX * 0.8f;
             Vector3 pos = new Vector3(xPos, spawnPositionY, 0);
 
-            var randomItem = allSpawnItems[Random.Range(0, allSpawnItems.Length)];
-            GameObject obj = Instantiate(randomItem.prefab, pos, Quaternion.identity);
-            SetupObjectMovement(obj, randomItem);
-            SetupObjectProperties(obj, randomItem);
+            // 패턴용 아이템 선택 (50% 확률로 아이템, 50% 확률로 장애물)
+            SpawnItem itemToSpawn;
+            if (Random.value < 0.5f)
+            {
+                itemToSpawn = GetRandomNormalItem();
+            }
+            else
+            {
+                itemToSpawn = GetRandomObstacleItem();
+            }
 
-            // 활성 오브젝트 리스트에 추가
-            activeObjects.Add(new ActiveObject(obj));
+            if (itemToSpawn != null)
+            {
+                GameObject obj = Instantiate(itemToSpawn.prefab, pos, Quaternion.identity);
+                SetupObjectMovement(obj, itemToSpawn);
+                SetupObjectProperties(obj, itemToSpawn);
+
+                // 활성 오브젝트 리스트에 추가
+                activeObjects.Add(new ActiveObject(obj));
+            }
 
             leftSide = !leftSide;
             yield return new WaitForSeconds(0.4f);
         }
     }
 
+    // 웨이브 패턴
     IEnumerator WavePattern()
     {
-        Debug.Log(" 특수 패턴: 웨이브!");
+        Debug.Log("특수 패턴: 웨이브!");
 
         for (int i = 0; i < 6; i++)
         {
             float xPos = Mathf.Sin(i * 0.5f) * spawnRangeX;
             Vector3 pos = new Vector3(xPos, spawnPositionY, 0);
 
-            var randomItem = allSpawnItems[Random.Range(0, allSpawnItems.Length)];
-            GameObject obj = Instantiate(randomItem.prefab, pos, Quaternion.identity);
-            SetupObjectMovement(obj, randomItem);
-            SetupObjectProperties(obj, randomItem);
+            // 웨이브 패턴용 아이템 선택 (주로 아이템)
+            SpawnItem itemToSpawn;
+            if (Random.value < 0.7f)
+            {
+                itemToSpawn = GetRandomNormalItem();
+            }
+            else
+            {
+                itemToSpawn = GetRandomObstacleItem();
+            }
 
-            // 활성 오브젝트 리스트에 추가
-            activeObjects.Add(new ActiveObject(obj));
+            if (itemToSpawn != null)
+            {
+                GameObject obj = Instantiate(itemToSpawn.prefab, pos, Quaternion.identity);
+                SetupObjectMovement(obj, itemToSpawn);
+                SetupObjectProperties(obj, itemToSpawn);
+
+                // 활성 오브젝트 리스트에 추가
+                activeObjects.Add(new ActiveObject(obj));
+            }
 
             yield return new WaitForSeconds(0.3f);
         }
     }
 
+    // 보너스 타임 패턴
     IEnumerator BonusTimePattern()
     {
-        Debug.Log(" 특수 패턴: 보너스 타임!");
+        Debug.Log("특수 패턴: 보너스 타임!");
 
         var highValueItems = System.Array.FindAll(allSpawnItems,
             item => item.itemType == ItemType.Normal && item.scoreValue > 15);
@@ -737,26 +882,23 @@ public class Spawner : MonoBehaviour
         }
     }
 
-    //  디버깅용 공개 메서드들
-    public string GetCurrentWaveInfo()
+    // 현재 난이도 스테이지 정보 가져오기
+    public string GetCurrentStageInfo()
     {
-        if (useWaveSystem && currentWave != null)
+        if (currentStage != null)
         {
-            return $"{currentWave.waveName} ({waveTimer:F1}s / {currentWave.duration}s)";
+            return $"{currentStage.stageName} (Game Time: {gameTime:F1}s)";
         }
-        return "무한 모드";
+        return "Default Stage";
     }
-
-    public float GetCurrentDifficulty()
+    
+    // 현재 난이도 스테이지 객체 가져오기
+    public DifficultyStage GetCurrentDifficulty()
     {
-        return currentDifficultyMultiplier;
+        return currentStage;
     }
 
-    public Dictionary<ItemType, int> GetItemTypeStats()
-    {
-        return new Dictionary<ItemType, int>(itemTypeCount);
-    }
-
+    // 스폰 상태 정보 가져오기
     public string GetSpawnStats()
     {
         float successRate = successfulSpawns + failedSpawns > 0 ?
@@ -765,12 +907,24 @@ public class Spawner : MonoBehaviour
         return $"Spawns: {successfulSpawns} success, {failedSpawns} failed ({successRate:F1}% success rate)";
     }
 
+    // 특별 아이템 제한 정보 가져오기
+    public string GetSpecialItemInfo()
+    {
+        System.Text.StringBuilder sb = new System.Text.StringBuilder();
+        foreach (var limit in specialItemLimits)
+        {
+            sb.AppendLine($"{limit.itemType}: {limit.GetRemainingCount()}/{limit.maxCountPerMinute} remaining");
+        }
+        return sb.ToString();
+    }
+
+    // 활성 오브젝트 수 가져오기
     public int GetActiveObjectCount()
     {
         return activeObjects.Count;
     }
 
-    //  디버그 표시 (Scene 뷰에서)
+    // 디버그 표시 (Scene 뷰에서)
     void OnDrawGizmos()
     {
         if (!showSpawnDebug || !Application.isPlaying) return;

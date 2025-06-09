@@ -1,17 +1,34 @@
 using UnityEngine;
 
+// ì£¼ì˜: ì´ í´ë˜ìŠ¤ëŠ” ì‚¬ìš©ë˜ì§€ ì•Šìœ¼ë©°, ìƒˆë¡œìš´ Spawner.csë¡œ ëŒ€ì²´ë˜ì—ˆìŠµë‹ˆë‹¤.
+// ê¸°ì¡´ì˜ ë ˆê±°ì‹œ ì½”ë“œì™€ì˜ í˜¸í™˜ì„±ì„ ìœ„í•´ ë‚¨ê²¨ë‘¡ë‹ˆë‹¤.
 public class ObstacleSpawner : MonoBehaviour
 {
-    public GameObject[] obstaclePrefabs;  // Àå¾Ö¹° ÇÁ¸®ÆÕ ¹è¿­
-    public GameObject[] itemPrefabs;      // ¾ÆÀÌÅÛ ÇÁ¸®ÆÕ ¹è¿­
-    public float spawnRate = 2f;          // »ı¼º ºóµµ
-    public float minX, maxX;              // »ı¼º À§Ä¡ ¹üÀ§
+    public GameObject[] obstaclePrefabs;  // ì¥ì• ë¬¼ í”„ë¦¬íŒ¹ ë°°ì—´
+    public GameObject[] itemPrefabs;      // ì•„ì´í…œ í”„ë¦¬íŒ¹ ë°°ì—´
+    public float spawnRate = 2f;          // ìƒì„± ë¥ 
+    public float minX, maxX;              // ìƒì„± ìœ„ì¹˜ ë²”ìœ„
 
     private float timer = 0f;
+    private bool isLegacySpawnerActive = false;  // ì´ í´ë˜ìŠ¤ëŠ” ë” ì´ìƒ ì‚¬ìš©ë˜ì§€ ì•ŠìŒ
+
+    void Start()
+    {
+        Debug.LogWarning("ObstacleSpawner is deprecated. Using new Spawner system instead.");
+        
+        // ìƒˆë¡œìš´ Spawnerê°€ ìˆëŠ”ì§€ í™•ì¸
+        Spawner newSpawner = FindObjectOfType<Spawner>();
+        if (newSpawner == null)
+        {
+            Debug.LogError("New Spawner not found! Re-activating legacy spawner.");
+            isLegacySpawnerActive = true;
+        }
+    }
 
     void Update()
     {
-        if (!GameManager.Instance.isGameActive) return;
+        // ìƒˆ ìŠ¤í¬ë„ˆê°€ ì—†ëŠ” ê²½ìš°ì—ë§Œ ì‹¤í–‰
+        if (!isLegacySpawnerActive || !GameManager.Instance.isGameActive) return;
 
         timer += Time.deltaTime;
 
@@ -22,19 +39,37 @@ public class ObstacleSpawner : MonoBehaviour
         }
     }
 
-    // ¿ÀºêÁ§Æ® »ı¼º
+    // ì˜¤ë¸Œì íŠ¸ ìƒì„± - ë ˆê±°ì‹œ ì§€ì›ìš©
     void SpawnObject()
     {
-        // ¾ÆÀÌÅÛ ¶Ç´Â Àå¾Ö¹° »ı¼º ·£´ı °áÁ¤
-        bool spawnItem = Random.Range(0, 100) < 30;  // 30% È®·ü·Î ¾ÆÀÌÅÛ »ı¼º
+        // ì•„ì´í…œ ë˜ëŠ” ì¥ì• ë¬¼ ìƒì„± ì—¬ë¶€ ê²°ì •
+        bool spawnItem = Random.Range(0, 100) < 30;  // 30% í™•ë¥ ë¡œ ì•„ì´í…œ ìƒì„±
 
         GameObject[] prefabsToUse = spawnItem ? itemPrefabs : obstaclePrefabs;
+        if (prefabsToUse.Length == 0) return;
+        
         GameObject prefab = prefabsToUse[Random.Range(0, prefabsToUse.Length)];
 
         float randomX = Random.Range(minX, maxX);
         Vector3 spawnPosition = new Vector3(randomX, transform.position.y, 0);
 
         GameObject spawnedObject = Instantiate(prefab, spawnPosition, Quaternion.identity);
-        spawnedObject.GetComponent<ObjectMovement>().SetSpeed(GameManager.Instance.gameSpeed);
+        
+        // MovingObject ì»´í¬ë„ŒíŠ¸ í™œìš©
+        MovingObject movingObj = spawnedObject.GetComponent<MovingObject>();
+        if (movingObj == null)
+        {
+            movingObj = spawnedObject.AddComponent<MovingObject>();
+        }
+        movingObj.speed = GameManager.Instance.gameSpeed;
+        
+        // ë¦¬ì§€ë“œë°”ë”” ì¶”ê°€ ë° ì„¤ì •
+        Rigidbody2D rb = spawnedObject.GetComponent<Rigidbody2D>();
+        if (rb == null)
+        {
+            rb = spawnedObject.AddComponent<Rigidbody2D>();
+            rb.gravityScale = 0;
+        }
+        rb.linearVelocity = Vector2.down * GameManager.Instance.gameSpeed;
     }
 }

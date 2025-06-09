@@ -5,71 +5,71 @@ using TMPro;
 
 public class ComboUI : MonoBehaviour
 {
-    [Header("UI ¿ä¼Òµé")]
-    public TextMeshProUGUI comboCountText; // "3 COMBO!" ÅØ½ºÆ®
-    public TextMeshProUGUI comboScoreText; // "+25 Á¡¼ö!" ÅØ½ºÆ®
-    public Slider comboTimerBar; // ÄŞº¸ Å¸ÀÌ¸Ó ¹Ù
-    public GameObject comboPanel; // ÀüÃ¼ ÄŞº¸ UI ÆĞ³Î
-    public GameObject specialComboEffect; // 5ÄŞº¸ Æ¯º° È¿°ú ÆĞ³Î
+    [Header("UI ìš”ì†Œë“¤")]
+    public TextMeshProUGUI comboCountText; // "3 COMBO!" í…ìŠ¤íŠ¸
+    public TextMeshProUGUI comboScoreText; // "+25 ì ìˆ˜!" í…ìŠ¤íŠ¸
+    public Slider comboTimerBar; // ì½¤ë³´ íƒ€ì´ë¨¸ ë°”
+    public GameObject comboPanel; // ì „ì²´ ì½¤ë³´ UI íŒ¨ë„
+    public GameObject specialComboEffect; // 5ì½¤ë³´ íŠ¹ìˆ˜ íš¨ê³¼ íŒ¨ë„
 
-    [Header("¾Ö´Ï¸ŞÀÌ¼Ç ¼³Á¤")]
-    public float textScaleAnimation = 1.3f; // ÅØ½ºÆ® Å©±â ¾Ö´Ï¸ŞÀÌ¼Ç
-    public float animationDuration = 0.3f; // ¾Ö´Ï¸ŞÀÌ¼Ç Áö¼Ó½Ã°£
-    public Color[] comboColors = { // ÄŞº¸º° »ö»ó
-        Color.white,    // 1ÄŞº¸
-        Color.green,    // 2ÄŞº¸  
-        Color.blue,     // 3ÄŞº¸
-        Color.magenta,  // 4ÄŞº¸
-        Color.red       // 5ÄŞº¸+
+    [Header("ì• ë‹ˆë©”ì´ì…˜ ì„¤ì •")]
+    public float textScaleAnimation = 1.3f; // í…ìŠ¤íŠ¸ í¬ê¸° ì• ë‹ˆë©”ì´ì…˜
+    public float animationDuration = 0.3f; // ì• ë‹ˆë©”ì´ì…˜ ì§€ì†ì‹œê°„
+    public Color[] comboColors = { // ì½¤ë³´ë³„ ìƒ‰ìƒ
+        Color.white,    // 1ì½¤ë³´
+        Color.green,    // 2ì½¤ë³´  
+        Color.blue,     // 3ì½¤ë³´
+        Color.magenta,  // 4ì½¤ë³´
+        Color.red       // 5ì½¤ë³´+
     };
 
-    [Header("Æ¯º° È¿°ú ¼³Á¤")]
-    public float specialEffectDuration = 2f; // 5ÄŞº¸ È¿°ú Áö¼Ó½Ã°£
-    public string specialComboMessage = "AWESOME!"; // 5ÄŞº¸ ¸Ş½ÃÁö
+    [Header("íŠ¹ìˆ˜ íš¨ê³¼ ì„¤ì •")]
+    public float specialEffectDuration = 2f; // 5ì½¤ë³´ íš¨ê³¼ ì§€ì†ì‹œê°„
+    public string specialComboMessage = "AWESOME!"; // 5ì½¤ë³´ ë©”ì‹œì§€
 
-    // ³»ºÎ º¯¼ö
+    // ë‚´ë¶€ ë³€ìˆ˜
     private Coroutine currentAnimation;
     private Vector3 originalTextScale;
     private bool isUIActive = false;
 
     void Start()
     {
-        // ÃÊ±â ¼³Á¤
+        // ì´ˆê¸° ì„¤ì •
         if (comboCountText != null)
         {
             originalTextScale = comboCountText.transform.localScale;
         }
 
-        // ÃÊ±â UI »óÅÂ ¼³Á¤ (ÆĞ³ÎÀº È°¼ºÈ­ »óÅÂ·Î µÎ°í °³º° ¿ä¼Ò¸¸ ¼û±è)
+        // ì´ˆê¸° UI ìƒíƒœ ì„¤ì • (íŒ¨ë„ì€ í™œì„±í™” ìƒíƒœë¡œ ë‘ê³  ë‚´ë¶€ ìš”ì†Œë§Œ ìˆ¨ê¹€)
         SetupInitialUI();
 
-        // ComboSystem ¿¬°áÀ» Áö¿¬½ÃÄÑ È®½ÇÇÏ°Ô ¿¬°á
+        // ComboSystem ì—°ê²°ì´ ì§€ì—°ë  ê²½ìš° ëŒ€ë¹„
         StartCoroutine(DelayedComboSystemConnection());
     }
 
     void SetupInitialUI()
     {
-        // ÆĞ³ÎÀº È°¼ºÈ­ »óÅÂ·Î À¯ÁöÇÏµÇ, °³º° ¿ä¼Òµé¸¸ ¼û±è
+        // íŒ¨ë„ì€ í™œì„±í™” ìƒíƒœë¡œ ìœ ì§€í•˜ë˜, ë‚´ë¶€ ìš”ì†Œë“¤ë§Œ ìˆ¨ê¹€
         if (comboPanel != null)
         {
-            comboPanel.SetActive(true); // ÆĞ³ÎÀº È°¼ºÈ­ À¯Áö
+            comboPanel.SetActive(true); // íŒ¨ë„ì€ í™œì„±í™” ìœ ì§€
         }
 
-        // °³º° UI ¿ä¼Òµé ¼û±è
+        // ë‚´ë¶€ UI ìš”ì†Œë“¤ ìˆ¨ê¹€
         if (comboCountText != null) comboCountText.gameObject.SetActive(false);
         if (comboScoreText != null) comboScoreText.gameObject.SetActive(false);
         if (comboTimerBar != null) comboTimerBar.gameObject.SetActive(false);
         if (specialComboEffect != null) specialComboEffect.SetActive(false);
 
         isUIActive = false;
-        Debug.Log("ComboUI ÃÊ±â ¼³Á¤ ¿Ï·á");
+        Debug.Log("ComboUI ì´ˆê¸° ì„¤ì • ì™„ë£Œ");
     }
 
     IEnumerator DelayedComboSystemConnection()
     {
-        // ComboSystemÀÌ ÃÊ±âÈ­µÉ ¶§±îÁö ´ë±â
+        // ComboSystemì´ ì´ˆê¸°í™”ë  ë•Œê¹Œì§€ ëŒ€ê¸°
         int attempts = 0;
-        while (ComboSystem.Instance == null && attempts < 50) // 5ÃÊ ´ë±â
+        while (ComboSystem.Instance == null && attempts < 50) // 5ì´ˆ ëŒ€ê¸°
         {
             attempts++;
             yield return new WaitForSeconds(0.1f);
@@ -77,22 +77,22 @@ public class ComboUI : MonoBehaviour
 
         if (ComboSystem.Instance != null)
         {
-            Debug.Log("ComboSystem ¿¬°á ¼º°ø!");
+            Debug.Log("ComboSystem ì—°ê²° ì„±ê³µ!");
 
-            // ÄŞº¸ ½Ã½ºÅÛ ÀÌº¥Æ® ¿¬°á
+            // ì½¤ë³´ ì‹œìŠ¤í…œ ì´ë²¤íŠ¸ ì—°ê²°
             ComboSystem.Instance.OnComboChanged += UpdateComboDisplay;
             ComboSystem.Instance.OnComboAchieved += OnComboAchieved;
             ComboSystem.Instance.OnComboReset += OnComboReset;
         }
         else
         {
-            Debug.LogError("ComboSystem ¿¬°á ½ÇÆĞ! ComboSystemÀÌ ¾À¿¡ ÀÖ´ÂÁö È®ÀÎÇÏ¼¼¿ä.");
+            Debug.LogError("ComboSystem ì—°ê²° ì‹¤íŒ¨! ComboSystemì´ ì”¬ì— ìˆëŠ”ì§€ í™•ì¸í•˜ì„¸ìš”.");
         }
     }
 
     void Update()
     {
-        // ÄŞº¸ Å¸ÀÌ¸Ó ¹Ù ¾÷µ¥ÀÌÆ®
+        // ì½¤ë³´ íƒ€ì´ë¨¸ ë°” ì—…ë°ì´íŠ¸
         if (isUIActive && ComboSystem.Instance != null)
         {
             UpdateTimerBar();
@@ -105,17 +105,17 @@ public class ComboUI : MonoBehaviour
         {
             ShowComboUI();
 
-            // ÄŞº¸ ÅØ½ºÆ® ¾÷µ¥ÀÌÆ®
+            // ì½¤ë³´ í…ìŠ¤íŠ¸ ì—…ë°ì´íŠ¸
             if (comboCountText != null)
             {
                 comboCountText.text = $"{comboCount} COMBO!";
 
-                // ÄŞº¸º° »ö»ó ¼³Á¤
+                // ì½¤ë³´ë³„ ìƒ‰ìƒ ì„¤ì •
                 Color comboColor = GetComboColor(comboCount);
                 comboCountText.color = comboColor;
             }
 
-            // Á¡¼ö ÅØ½ºÆ® ¾÷µ¥ÀÌÆ®
+            // ì ìˆ˜ í…ìŠ¤íŠ¸ ì—…ë°ì´íŠ¸
             if (comboScoreText != null)
             {
                 int score = CalculateDisplayScore(comboCount);
@@ -131,16 +131,16 @@ public class ComboUI : MonoBehaviour
 
     void OnComboAchieved(int comboCount)
     {
-        Debug.Log($"UI: {comboCount}ÄŞº¸ ´Ş¼º!");
+        Debug.Log($"UI: {comboCount}ì½¤ë³´ ë‹¬ì„±!");
 
-        // ÅØ½ºÆ® ¾Ö´Ï¸ŞÀÌ¼Ç ½ÇÇà
+        // í…ìŠ¤íŠ¸ ì• ë‹ˆë©”ì´ì…˜ ì‹¤í–‰
         if (currentAnimation != null)
         {
             StopCoroutine(currentAnimation);
         }
         currentAnimation = StartCoroutine(ComboTextAnimation());
 
-        // 5ÄŞº¸ ´Ş¼º ½Ã Æ¯º° È¿°ú
+        // 5ì½¤ë³´ ë‹¬ì„± ì‹œ íŠ¹ìˆ˜ íš¨ê³¼
         if (comboCount % 5 == 0)
         {
             StartCoroutine(SpecialComboEffect());
@@ -149,10 +149,10 @@ public class ComboUI : MonoBehaviour
 
     void OnComboReset()
     {
-        Debug.Log("UI: ÄŞº¸ ¸®¼Â");
+        Debug.Log("UI: ì½¤ë³´ ë¦¬ì…‹");
         HideComboUI();
 
-        // ½ÇÇà ÁßÀÎ ¾Ö´Ï¸ŞÀÌ¼Ç Á¤¸®
+        // í˜„ì¬ ì‹¤í–‰ ì• ë‹ˆë©”ì´ì…˜ ì¤‘ì§€
         if (currentAnimation != null)
         {
             StopCoroutine(currentAnimation);
@@ -165,9 +165,9 @@ public class ComboUI : MonoBehaviour
         if (!isUIActive)
         {
             isUIActive = true;
-            Debug.Log("ÄŞº¸ UI È°¼ºÈ­");
+            Debug.Log("ì½¤ë³´ UI í™œì„±í™”");
 
-            // °³º° UI ¿ä¼Òµé È°¼ºÈ­
+            // ë‚´ë¶€ UI ìš”ì†Œë“¤ í™œì„±í™”
             if (comboCountText != null) comboCountText.gameObject.SetActive(true);
             if (comboScoreText != null) comboScoreText.gameObject.SetActive(true);
             if (comboTimerBar != null) comboTimerBar.gameObject.SetActive(true);
@@ -179,9 +179,9 @@ public class ComboUI : MonoBehaviour
         if (isUIActive)
         {
             isUIActive = false;
-            Debug.Log("ÄŞº¸ UI ºñÈ°¼ºÈ­");
+            Debug.Log("ì½¤ë³´ UI ë¹„í™œì„±í™”");
 
-            // °³º° UI ¿ä¼Òµé ºñÈ°¼ºÈ­
+            // ë‚´ë¶€ UI ìš”ì†Œë“¤ ë¹„í™œì„±í™”
             if (comboCountText != null) comboCountText.gameObject.SetActive(false);
             if (comboScoreText != null) comboScoreText.gameObject.SetActive(false);
             if (comboTimerBar != null) comboTimerBar.gameObject.SetActive(false);
@@ -195,7 +195,7 @@ public class ComboUI : MonoBehaviour
             float timeRatio = ComboSystem.Instance.GetComboTimeRatio();
             comboTimerBar.value = timeRatio;
 
-            // Å¸ÀÌ¸Ó ¹Ù »ö»ó º¯°æ (½Ã°£ÀÌ ÀûÀ»¼ö·Ï »¡°£»ö)
+            // íƒ€ì´ë¨¸ ë°” ìƒ‰ìƒ ì„¤ì • (ì‹œê°„ì´ ì¤„ì–´ë“¤ë©´ ë¹¨ê°œì§)
             Image fillImage = comboTimerBar.fillRect?.GetComponent<Image>();
             if (fillImage != null)
             {
@@ -214,35 +214,33 @@ public class ComboUI : MonoBehaviour
 
     int CalculateDisplayScore(int comboCount)
     {
-        // ComboSystem°ú µ¿ÀÏÇÑ °è»ê ·ÎÁ÷
-        int baseScore = 10;
-        int[] bonuses = { 0, 10, 20, 30, 50 };
-
-        int bonus = 0;
-        if (comboCount <= bonuses.Length)
+        // ComboSystemì—ì„œ ì ìˆ˜ ê³„ì‚° ë¡œì§ ê°€ì ¸ì˜¤ê¸°
+        if (ComboSystem.Instance != null)
         {
-            bonus = bonuses[comboCount - 1];
+            // ComboSystemì—ì„œ ì œê³µí•˜ëŠ” ì ìˆ˜ ê³„ì‚° ë©”ì„œë“œ ì‚¬ìš©
+            return ComboSystem.Instance.GetScoreForCombo(comboCount);
         }
         else
         {
-            bonus = bonuses[bonuses.Length - 1];
+            // ComboSystemì„ ì°¾ì„ ìˆ˜ ì—†ëŠ” ê²½ìš° ê¸°ë³¸ ì ìˆ˜ ê³„ì‚°
+            int baseScore = 10;
+            int comboBonus = (comboCount - 1) * 5; // ê¸°ë³¸ ìŠ¹ìˆ˜ 5 ì‚¬ìš©
+            int totalScore = baseScore + comboBonus;
+            
+            // 5ì˜ ë°°ìˆ˜ ì½¤ë³´ ë³´ë„ˆìŠ¤
+            if (comboCount % 5 == 0)
+            {
+                totalScore += 50;
+            }
+            
+            // 10ì˜ ë°°ìˆ˜ ì½¤ë³´ ë³´ë„ˆìŠ¤
+            if (comboCount % 10 == 0)
+            {
+                totalScore += 100;
+            }
+            
+            return totalScore;
         }
-
-        int totalScore = baseScore + bonus;
-
-        // 5ÄŞº¸ Æ¯º° º¸³Ê½º
-        if (comboCount % 5 == 0)
-        {
-            totalScore += 50;
-        }
-
-        // 10ÄŞº¸ Æ¯º° º¸³Ê½º
-        if (comboCount % 10 == 0)
-        {
-            totalScore += 100;
-        }
-
-        return totalScore;
     }
 
     IEnumerator ComboTextAnimation()
@@ -253,7 +251,7 @@ public class ComboUI : MonoBehaviour
         Vector3 startScale = originalTextScale;
         Vector3 targetScale = originalTextScale * textScaleAnimation;
 
-        // Å©±â È®´ë ¾Ö´Ï¸ŞÀÌ¼Ç
+        // í¬ê¸° í™•ëŒ€ ì• ë‹ˆë©”ì´ì…˜
         float elapsed = 0f;
         while (elapsed < animationDuration / 2f)
         {
@@ -264,7 +262,7 @@ public class ComboUI : MonoBehaviour
             yield return null;
         }
 
-        // Å©±â Ãà¼Ò ¾Ö´Ï¸ŞÀÌ¼Ç
+        // í¬ê¸° ì¶•ì†Œ ì• ë‹ˆë©”ì´ì…˜
         elapsed = 0f;
         while (elapsed < animationDuration / 2f)
         {
@@ -275,20 +273,20 @@ public class ComboUI : MonoBehaviour
             yield return null;
         }
 
-        // ÃÖÁ¾ Å©±â ¼³Á¤
+        // ì›ë˜ í¬ê¸° ë³µì›
         textTransform.localScale = startScale;
     }
 
     IEnumerator SpecialComboEffect()
     {
-        Debug.Log(" 5ÄŞº¸ Æ¯º° È¿°ú ½ÇÇà!");
+        Debug.Log("5ì½¤ë³´ íŠ¹ìˆ˜ íš¨ê³¼ ì‹œì‘!");
 
         if (specialComboEffect != null)
         {
-            // Æ¯º° È¿°ú ÆĞ³Î È°¼ºÈ­
+            // íŠ¹ìˆ˜ íš¨ê³¼ íŒ¨ë„ í™œì„±í™”
             specialComboEffect.SetActive(true);
 
-            // Æ¯º° ¸Ş½ÃÁö ¼³Á¤
+            // íŠ¹ìˆ˜ ë©”ì‹œì§€ ì„¤ì •
             Text specialText = specialComboEffect.GetComponentInChildren<Text>();
             if (specialText != null)
             {
@@ -296,29 +294,29 @@ public class ComboUI : MonoBehaviour
                 specialText.color = Color.yellow;
             }
 
-            // È­¸é ÀüÃ¼ È¿°ú ¾Ö´Ï¸ŞÀÌ¼Ç
+            // í™”ë©´ ì „ì²´ íš¨ê³¼ ì• ë‹ˆë©”ì´ì…˜
             yield return StartCoroutine(ScreenFlashEffect());
 
-            // Áö¼Ó ½Ã°£ ´ë±â
+            // ì¼ì • ì‹œê°„ ëŒ€ê¸°
             yield return new WaitForSeconds(specialEffectDuration);
 
-            // Æ¯º° È¿°ú ÆĞ³Î ºñÈ°¼ºÈ­
+            // íŠ¹ìˆ˜ íš¨ê³¼ íŒ¨ë„ ë¹„í™œì„±í™”
             specialComboEffect.SetActive(false);
         }
 
-        // Ãß°¡ È¿°úµé
+        // ì¶”ê°€ íš¨ê³¼ë“¤
         yield return StartCoroutine(SpecialTextAnimation());
     }
 
     IEnumerator ScreenFlashEffect()
     {
-        // È­¸é ÇÃ·¡½Ã È¿°ú
+        // í™”ë©´ í”Œë˜ì‹œ íš¨ê³¼
         Image flashImage = specialComboEffect?.GetComponent<Image>();
         if (flashImage != null)
         {
             Color originalColor = flashImage.color;
 
-            // ¹à°Ô ÇÃ·¡½Ã
+            // ì—¬ëŸ¬ í”Œë˜ì‹œ
             for (int i = 0; i < 3; i++)
             {
                 flashImage.color = Color.white;
@@ -333,7 +331,7 @@ public class ComboUI : MonoBehaviour
     {
         if (comboCountText == null) yield break;
 
-        // ¹«Áö°³ »ö»ó È¿°ú
+        // ë¬´ì§€ê°œ ìƒ‰ìƒ íš¨ê³¼
         float duration = 1f;
         float elapsed = 0f;
 
@@ -341,26 +339,26 @@ public class ComboUI : MonoBehaviour
         {
             elapsed += Time.deltaTime;
 
-            // ¹«Áö°³ »ö»ó °è»ê
+            // ë¬´ì§€ê°œ ìƒ‰ìƒ ìƒì„±
             float hue = (elapsed / duration) % 1f;
             Color rainbowColor = Color.HSVToRGB(hue, 1f, 1f);
 
             comboCountText.color = rainbowColor;
 
-            // Å©±âµµ Á¶±İ¾¿ º¯È­
+            // í¬ê¸°ë„ ì•½ê°„ì”© ë³€í™”
             float scale = 1f + Mathf.Sin(elapsed * 10f) * 0.1f;
             comboCountText.transform.localScale = originalTextScale * scale;
 
             yield return null;
         }
 
-        // ¿ø·¡ »óÅÂ·Î º¹¿ø
+        // ì›ë˜ ìƒíƒœë¡œ ë³µì›
         comboCountText.transform.localScale = originalTextScale;
     }
 
     void OnDestroy()
     {
-        // ÀÌº¥Æ® ¿¬°á ÇØÁ¦
+        // ì´ë²¤íŠ¸ ì—°ê²° í•´ì œ
         if (ComboSystem.Instance != null)
         {
             ComboSystem.Instance.OnComboChanged -= UpdateComboDisplay;
@@ -370,13 +368,13 @@ public class ComboUI : MonoBehaviour
     }
 }
 
-// ÄŞº¸ UI ÇïÆÛ Å¬·¡½º - Á¡¼ö ÅØ½ºÆ® ¾Ö´Ï¸ŞÀÌ¼Ç¿ë
+// ì ìˆ˜ UI ì• ë‹ˆë©”ì´ì…˜ í´ë˜ìŠ¤ - ê³µì¤‘ í…ìŠ¤íŠ¸ ì• ë‹ˆë©”ì´ì…˜ìš©
 public class ScoreTextAnimator : MonoBehaviour
 {
-    [Header("¾Ö´Ï¸ŞÀÌ¼Ç ¼³Á¤")]
-    public float floatSpeed = 2f; // À§·Î ¶°¿À¸£´Â ¼Óµµ
-    public float fadeSpeed = 1f; // ÆäÀÌµå ¾Æ¿ô ¼Óµµ
-    public float lifetime = 2f; // »ıÁ¸ ½Ã°£
+    [Header("ì• ë‹ˆë©”ì´ì…˜ ì„¤ì •")]
+    public float floatSpeed = 2f; // ìœ„ë¡œ ì˜¬ë¼ê°€ëŠ” ì†ë„
+    public float fadeSpeed = 1f; // í˜ì´ë“œ ì•„ì›ƒ ì†ë„
+    public float lifetime = 2f; // ìƒì¡´ ì‹œê°„
 
     private Text textComponent;
     private Vector3 startPosition;
@@ -387,7 +385,7 @@ public class ScoreTextAnimator : MonoBehaviour
         textComponent = GetComponent<Text>();
         startPosition = transform.position;
 
-        // ÀÚµ¿ »èÁ¦ ¿¹¾à
+        // ìë™ ì‚­ì œ ì„¤ì •
         Destroy(gameObject, lifetime);
     }
 
@@ -395,11 +393,11 @@ public class ScoreTextAnimator : MonoBehaviour
     {
         timer += Time.deltaTime;
 
-        // À§·Î ¶°¿À¸£´Â ¾Ö´Ï¸ŞÀÌ¼Ç
+        // ìœ„ë¡œ ì˜¬ë¼ê°€ëŠ” ì• ë‹ˆë©”ì´ì…˜
         Vector3 newPos = startPosition + Vector3.up * (timer * floatSpeed);
         transform.position = newPos;
 
-        // ÆäÀÌµå ¾Æ¿ô È¿°ú
+        // í˜ì´ë“œ ì•„ì›ƒ íš¨ê³¼
         if (textComponent != null)
         {
             float alpha = 1f - (timer / lifetime);
@@ -409,10 +407,10 @@ public class ScoreTextAnimator : MonoBehaviour
         }
     }
 
-    // Á¡¼ö ÅØ½ºÆ® »ı¼º¿ë Á¤Àû ¸Ş¼­µå
+    // ì ìˆ˜ í…ìŠ¤íŠ¸ ìƒì„±ì„ ìœ„í•œ ë©”ì„œë“œ
     public static GameObject CreateScoreText(Vector3 position, string text, Color color, Transform parent = null)
     {
-        // ±âº» ÅØ½ºÆ® ¿ÀºêÁ§Æ® »ı¼º
+        // ê¸°ë³¸ í…ìŠ¤íŠ¸ ì˜¤ë¸Œì íŠ¸ ìƒì„±
         GameObject scoreTextObj = new GameObject("ScoreText");
 
         if (parent != null)
@@ -420,7 +418,7 @@ public class ScoreTextAnimator : MonoBehaviour
             scoreTextObj.transform.SetParent(parent, false);
         }
 
-        // Text ÄÄÆ÷³ÍÆ® Ãß°¡
+        // Text ì»´í¬ë„ŒíŠ¸ ì¶”ê°€
         Text textComp = scoreTextObj.AddComponent<Text>();
         textComp.text = text;
         textComp.color = color;
@@ -428,10 +426,10 @@ public class ScoreTextAnimator : MonoBehaviour
         textComp.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
         textComp.alignment = TextAnchor.MiddleCenter;
 
-        // À§Ä¡ ¼³Á¤
+        // ìœ„ì¹˜ ì„¤ì •
         scoreTextObj.transform.position = position;
 
-        // ¾Ö´Ï¸ŞÀÌÅÍ Ãß°¡
+        // ì• ë‹ˆë©”ì´í„° ì¶”ê°€
         scoreTextObj.AddComponent<ScoreTextAnimator>();
 
         return scoreTextObj;

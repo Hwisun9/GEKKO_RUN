@@ -9,7 +9,7 @@ public class ScoreItem : MonoBehaviour
     {
         if (other.CompareTag("Player"))
         {
-            Debug.Log($" Player collided with: {gameObject.name}, Tag: {gameObject.tag}");
+            Debug.Log($"Player collided with: {gameObject.name}, Tag: {gameObject.tag}");
 
             if (GameManager.Instance != null)
             {
@@ -17,7 +17,7 @@ public class ScoreItem : MonoBehaviour
             }
             else
             {
-                Debug.LogError(" GameManager.Instance is null!");
+                Debug.LogError("GameManager.Instance is null!");
             }
 
             // CreateEffect();
@@ -45,66 +45,62 @@ public class ScoreItem : MonoBehaviour
                 HandleHideItem();
                 break;
             default:
-                Debug.LogWarning($" Unknown item tag: {gameObject.tag}");
+                Debug.LogWarning($"Unknown item tag: {gameObject.tag}");
                 break;
         }
     }
 
     void HandleNormalItem()
     {
-        Debug.Log(" Normal item collected!");
+        Debug.Log("Normal item collected!");
 
-        // ÄŞº¸ ½Ã½ºÅÛ Ã³¸®
-        if (ComboSystem.Instance != null)
-        {
-            ComboSystem.Instance.OnItemCollected();
-        }
-
-        // Á¡¼ö ¹× ¾ÆÀÌÅÛ ¼öÁı Ã³¸®
+        // ì½¤ë³´ ì‹œìŠ¤í…œ ì²˜ë¦¬ëŠ” PlayerControllerì—ì„œë§Œ ìˆ˜í–‰í•˜ë„ë¡ ì œê±°
+        
+        // ì ìˆ˜ ë° ì•„ì´í…œ íšë“ ì²˜ë¦¬
         GameManager.Instance.AddScore(scoreValue);
-        GameManager.Instance.AddCollectedItem(); // »ç¿îµå Àç»ı Æ÷ÇÔ
+        GameManager.Instance.AddCollectedItem(); // ì•„ì´í…œ íšë“ ì¹´ìš´íŠ¸
     }
 
     void HandleObstacle()
     {
-        Debug.Log(" Obstacle hit!");
-        // Àå¾Ö¹°Àº ScoreItem¿¡¼­ Ã³¸®ÇÏÁö ¾ÊÀ½ (PlayerController¿¡¼­ Ã³¸®)
+        Debug.Log("Obstacle hit!");
+        // ì¥ì• ë¬¼ì€ ScoreItemì—ì„œ ì²˜ë¦¬í•˜ì§€ ì•ŠìŒ (PlayerControllerì—ì„œ ì²˜ë¦¬)
     }
 
     void HandleMagnetItem()
     {
-        Debug.Log(" Magnet item collected!");
+        Debug.Log("Magnet item collected!");
 
-        // ÀÚ¼® È¿°ú È°¼ºÈ­
+        // ìì„ íš¨ê³¼ í™œì„±í™”
         GameManager.Instance.ActivateMagnet();
 
-        // ÀÚ¼® ¾ÆÀÌÅÛµµ Á¡¼ö Á¦°ø
+        // ìì„ ì•„ì´í…œë„ ì ìˆ˜ ì¶”ê°€
         GameManager.Instance.AddScore(scoreValue > 0 ? scoreValue : 25);
-        GameManager.Instance.AddCollectedItem(); // »ç¿îµå Àç»ı
+        GameManager.Instance.AddCollectedItem(); // ì•„ì´í…œ íšë“ ì¹´ìš´íŠ¸
     }
 
     void HandleMushroomItem()
     {
-        Debug.Log(" Mushroom item collected!");
+        Debug.Log("Mushroom item collected!");
 
-        // ÀÛ¾ÆÁö´Â ¹öÇÁ È°¼ºÈ­
+        // ì‘ì•„ì§€ê¸° íš¨ê³¼ í™œì„±í™”
         GameManager.Instance.ActivateShrink();
 
-        // Á¡¼ö Á¦°ø
+        // ì ìˆ˜ ì¶”ê°€
         GameManager.Instance.AddScore(scoreValue > 0 ? scoreValue : 30);
-        GameManager.Instance.AddCollectedItem(); // »ç¿îµå Àç»ı
+        GameManager.Instance.AddCollectedItem(); // ì•„ì´í…œ íšë“ ì¹´ìš´íŠ¸
     }
 
     void HandleHideItem()
     {
-        Debug.Log(" Hide potion collected!");
+        Debug.Log("Hide potion collected!");
 
-        // Åõ¸íÈ­ ¹öÇÁ È°¼ºÈ­
+        // íˆ¬ëª…í™” íš¨ê³¼ í™œì„±í™”
         GameManager.Instance.ActivateHide();
 
-        // Á¡¼ö Á¦°ø (°¡Àå ³ôÀº Á¡¼ö)
+        // ì ìˆ˜ ì¶”ê°€ (ê°€ì¥ ë†’ì€ ê°€ì¹˜)
         GameManager.Instance.AddScore(scoreValue > 0 ? scoreValue : 50);
-        GameManager.Instance.AddCollectedItem(); // »ç¿îµå Àç»ı
+        GameManager.Instance.AddCollectedItem(); // ì•„ì´í…œ íšë“ ì¹´ìš´íŠ¸
     }
 
     void CreateEffect()
@@ -112,7 +108,7 @@ public class ScoreItem : MonoBehaviour
         GameObject effect = new GameObject($"Effect_{gameObject.tag}");
         effect.transform.position = transform.position;
 
-        // ¾ÆÀÌÅÛ Å¸ÀÔ¿¡ µû¸¥ ´Ù¸¥ ÀÌÆåÆ®
+        // ì•„ì´í…œ íƒ€ì…ì— ë”°ë¥¸ ë‹¤ë¥¸ ì´í™íŠ¸
         switch (gameObject.tag)
         {
             case "Magnet":
@@ -129,7 +125,7 @@ public class ScoreItem : MonoBehaviour
                 break;
         }
 
-        // ÀÌÆåÆ® ÀÚµ¿ »èÁ¦
+        // ì´í™íŠ¸ ìë™ ì‚­ì œ
         Destroy(effect, 1.5f);
     }
 
@@ -140,30 +136,30 @@ public class ScoreItem : MonoBehaviour
 
     void CreateMagnetEffect(GameObject effect)
     {
-        Debug.Log(" Creating magnet collection effect!");
+        Debug.Log("Creating magnet collection effect!");
         StartCoroutine(ScaleEffectWithRotation(effect.transform, Color.blue, 2f, 0.8f));
     }
 
     void CreateMushroomEffect(GameObject effect)
     {
-        Debug.Log(" Creating mushroom collection effect!");
+        Debug.Log("Creating mushroom collection effect!");
         StartCoroutine(ScaleEffect(effect.transform, Color.green, 1.8f, 0.6f));
     }
 
     void CreateHideEffect(GameObject effect)
     {
-        Debug.Log(" Creating hide potion collection effect!");
+        Debug.Log("Creating hide potion collection effect!");
         StartCoroutine(ScaleEffectWithFade(effect.transform, Color.magenta, 2.2f, 1f));
     }
 
-    // ±âº» ½ºÄÉÀÏ ÀÌÆåÆ®
+    // ê¸°ë³¸ ìŠ¤ì¼€ì¼ ì´í™íŠ¸
     System.Collections.IEnumerator ScaleEffect(Transform effectTransform, Color color, float maxScale, float duration)
     {
         Vector3 startScale = Vector3.zero;
         Vector3 endScale = Vector3.one * maxScale;
         float elapsed = 0f;
 
-        // È®´ë
+        // í™•ì¥
         while (elapsed < duration * 0.5f)
         {
             elapsed += Time.deltaTime;
@@ -172,7 +168,7 @@ public class ScoreItem : MonoBehaviour
             yield return null;
         }
 
-        // Ãà¼Ò
+        // ì¶•ì†Œ
         elapsed = 0f;
         while (elapsed < duration * 0.5f)
         {
@@ -183,43 +179,43 @@ public class ScoreItem : MonoBehaviour
         }
     }
 
-    // È¸ÀüÀÌ Æ÷ÇÔµÈ ½ºÄÉÀÏ ÀÌÆåÆ® (ÀÚ¼®¿ë)
+    // íšŒì „ì´ í¬í•¨ëœ ìŠ¤ì¼€ì¼ ì´í™íŠ¸ (ìì„ìš©)
     System.Collections.IEnumerator ScaleEffectWithRotation(Transform effectTransform, Color color, float maxScale, float duration)
     {
         Vector3 startScale = Vector3.zero;
         Vector3 endScale = Vector3.one * maxScale;
         float elapsed = 0f;
 
-        // È®´ë + È¸Àü
+        // í™•ì¥ + íšŒì „
         while (elapsed < duration * 0.6f)
         {
             elapsed += Time.deltaTime;
             float t = elapsed / (duration * 0.6f);
             effectTransform.localScale = Vector3.Lerp(startScale, endScale, t);
-            effectTransform.Rotate(0, 0, 720 * Time.deltaTime); // ºü¸¥ È¸Àü
+            effectTransform.Rotate(0, 0, 720 * Time.deltaTime); // ë¹ ë¥¸ íšŒì „
             yield return null;
         }
 
-        // Ãà¼Ò + È¸Àü
+        // ì¶•ì†Œ + íšŒì „
         elapsed = 0f;
         while (elapsed < duration * 0.4f)
         {
             elapsed += Time.deltaTime;
             float t = elapsed / (duration * 0.4f);
             effectTransform.localScale = Vector3.Lerp(endScale, Vector3.zero, t);
-            effectTransform.Rotate(0, 0, 360 * Time.deltaTime); // ´À¸° È¸Àü
+            effectTransform.Rotate(0, 0, 360 * Time.deltaTime); // ëŠë¦° íšŒì „
             yield return null;
         }
     }
 
-    // ÆäÀÌµå È¿°ú°¡ Æ÷ÇÔµÈ ½ºÄÉÀÏ ÀÌÆåÆ® (Åõ¸íÈ­ Æ÷¼Ç¿ë)
+    // í˜ì´ë“œ íš¨ê³¼ê°€ í¬í•¨ëœ ìŠ¤ì¼€ì¼ ì´í™íŠ¸ (íˆ¬ëª…í™” í¬ì…˜ìš©)
     System.Collections.IEnumerator ScaleEffectWithFade(Transform effectTransform, Color color, float maxScale, float duration)
     {
         Vector3 startScale = Vector3.zero;
         Vector3 endScale = Vector3.one * maxScale;
         float elapsed = 0f;
 
-        // È®´ë
+        // í™•ì¥
         while (elapsed < duration * 0.4f)
         {
             elapsed += Time.deltaTime;
@@ -228,17 +224,17 @@ public class ScoreItem : MonoBehaviour
             yield return null;
         }
 
-        // À¯Áö
+        // ê¹œë¹¡ì„
         elapsed = 0f;
         while (elapsed < duration * 0.2f)
         {
             elapsed += Time.deltaTime;
-            // ±ôºıÀÓ È¿°ú
+            // ê¹œë¹¡ì„ íš¨ê³¼
             float alpha = Mathf.Sin(elapsed * 10f) * 0.5f + 0.5f;
             yield return null;
         }
 
-        // Ãà¼Ò
+        // ì¶•ì†Œ
         elapsed = 0f;
         while (elapsed < duration * 0.4f)
         {

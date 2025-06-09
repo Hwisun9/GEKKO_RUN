@@ -3,31 +3,36 @@ using UnityEngine;
 
 public class BoosterSystem : MonoBehaviour
 {
-    [Header("ºÎ½ºÅÍ ¼³Á¤")]
-    public float boosterDuration = 10f; // ºÎ½ºÅÍ Áö¼Ó ½Ã°£
-    public float speedMultiplier = 3f; // ¼Óµµ ¹èÀ²
+    [Header("ë¶€ìŠ¤í„° ì„¤ì •")]
+    public float boosterDuration = 10f; // ë¶€ìŠ¤í„° ì§€ì† ì‹œê°„
+    public float speedMultiplier = 3f; // ì†ë„ ë°°ìœ¨
 
-    [Header("½Ã°¢ È¿°ú")]
-    public Color boosterColor = Color.yellow; // ºÎ½ºÅÍ »ö»ó
-    public float flashInterval = 0.5f; // ±ôºıÀÓ °£°İ
+    [Header("ì‹œê° íš¨ê³¼")]
+    //public Color boosterColor = Color.yellow; // ë¶€ìŠ¤í„° ìƒ‰ìƒ
+    //public float flashInterval = 0.5f; // ê¹œë¹¡ì„ ê°„ê²©
+    
+    [Header("ì¥ì• ë¬¼ íŒŒê´´ íš¨ê³¼")]
+    //public Color obstacleDestroyColor = Color.red; // ì¥ì• ë¬¼ íŒŒê´´ ìƒ‰ìƒ
+    //public float obstacleDestroyFlashDuration = 0.2f; // ì¥ì• ë¬¼ íŒŒê´´ í”Œë˜ì‹œ ì§€ì†ì‹œê°„
+    //public float obstacleScoreMultiplier = 1.5f; // ì¥ì• ë¬¼ íŒŒê´´ ì‹œ ì ìˆ˜ ë°°ìœ¨
 
-    [Header("¿Àµğ¿À")]
+    [Header("ì‚¬ìš´ë“œ")]
     public AudioClip boosterStartSound;
     public AudioClip boosterEndSound;
     public AudioClip obstacleDestroySound;
 
-    // ºÎ½ºÅÍ »óÅÂ
+    // ë¶€ìŠ¤í„° ìƒíƒœ
     private bool isBoosterActive = false;
     private float boosterTimer = 0f;
     private Coroutine boosterCoroutine;
 
-    // ½Ã½ºÅÛ ÂüÁ¶
+    // ì‹œìŠ¤í…œ ì°¸ì¡°
     private BackgroundRepeat[] backgrounds;
     private Spawner spawner;
     private PlayerController playerController;
     private GameManager gameManager;
 
-    // ¿øº» °ªµé ÀúÀå
+    // ë°°ê²½ ì†ë„ ì €ì¥
     private float[] originalBackgroundSpeeds;
 
     public static BoosterSystem Instance;
@@ -51,13 +56,13 @@ public class BoosterSystem : MonoBehaviour
 
     void InitializeReferences()
     {
-        // ÂüÁ¶ ¼³Á¤
+        // ì°¸ì¡° ì„¤ì •
         backgrounds = FindObjectsOfType<BackgroundRepeat>();
         spawner = FindObjectOfType<Spawner>();
         playerController = FindObjectOfType<PlayerController>();
         gameManager = GameManager.Instance;
 
-        // ¿øº» ¹è°æ ¼Óµµ ÀúÀå
+        // ë°°ê²½ ì›ë³¸ ì†ë„ ì €ì¥
         if (backgrounds != null && backgrounds.Length > 0)
         {
             originalBackgroundSpeeds = new float[backgrounds.Length];
@@ -67,7 +72,7 @@ public class BoosterSystem : MonoBehaviour
             }
         }
 
-        Debug.Log($" BoosterSystem initialized - Found {backgrounds?.Length ?? 0} backgrounds");
+        Debug.Log($"BoosterSystem initialized - Found {backgrounds?.Length ?? 0} backgrounds");
     }
 
     void Update()
@@ -83,43 +88,42 @@ public class BoosterSystem : MonoBehaviour
         }
     }
 
-    // ºÎ½ºÅÍ È°¼ºÈ­
+    // ë¶€ìŠ¤í„° í™œì„±í™”
     public void ActivateBooster()
     {
+        // ì´ë¯¸ í™œì„±í™”ëœ ê²½ìš° ì•„ë¬´ ê²ƒë„ í•˜ì§€ ì•ŠìŒ (ì§€ì†ì‹œê°„ ì—°ì¥í•˜ì§€ ì•ŠìŒ)
         if (isBoosterActive)
         {
-            // ÀÌ¹Ì È°¼ºÈ­µÇ¾î ÀÖ´Ù¸é ½Ã°£ ¿¬Àå
-            boosterTimer = boosterDuration;
-            Debug.Log($" Booster time extended! Remaining: {boosterTimer:F1}s");
+            Debug.Log("Booster already active, ignoring activation request");
             return;
         }
 
         isBoosterActive = true;
         boosterTimer = boosterDuration;
 
-        Debug.Log($" Booster activated! Duration: {boosterDuration}s");
+        Debug.Log($"Booster activated! Duration: {boosterDuration}s");
 
-        // È¿°ú Àû¿ë
+        // íš¨ê³¼ ì ìš©
         ApplyBoosterEffects();
 
-        // ½Ã°¢ È¿°ú ½ÃÀÛ
-        if (boosterCoroutine != null)
+        // ì‹œê° íš¨ê³¼ ì‹œì‘
+      //  if (boosterCoroutine != null)
         {
             StopCoroutine(boosterCoroutine);
         }
-        boosterCoroutine = StartCoroutine(BoosterVisualEffect());
+      //  boosterCoroutine = StartCoroutine(BoosterVisualEffect());
 
-        // »ç¿îµå Àç»ı
+        // ì‚¬ìš´ë“œ ì¬ìƒ
         PlaySound(boosterStartSound);
 
-        // ÇÃ·¹ÀÌ¾î ¹«Àû »óÅÂ È°¼ºÈ­
+        // í”Œë ˆì´ì–´ ë¬´ì  ìƒíƒœ í™œì„±í™”
         if (playerController != null)
         {
             playerController.SetInvincible(true);
         }
     }
 
-    // ºÎ½ºÅÍ ºñÈ°¼ºÈ­
+    // ë¶€ìŠ¤í„° ë¹„í™œì„±í™”
     public void DeactivateBooster()
     {
         if (!isBoosterActive) return;
@@ -127,32 +131,32 @@ public class BoosterSystem : MonoBehaviour
         isBoosterActive = false;
         boosterTimer = 0f;
 
-        Debug.Log(" Booster deactivated!");
+        Debug.Log("Booster deactivated!");
 
-        // È¿°ú ÇØÁ¦
+        // íš¨ê³¼ ë¦¬ì…‹
         ResetBoosterEffects();
 
-        // ½Ã°¢ È¿°ú Áß´Ü
+        // ì‹œê° íš¨ê³¼ ì¤‘ë‹¨
         if (boosterCoroutine != null)
         {
             StopCoroutine(boosterCoroutine);
             boosterCoroutine = null;
         }
 
-        // »ç¿îµå Àç»ı
+        // ì‚¬ìš´ë“œ ì¬ìƒ
         PlaySound(boosterEndSound);
 
-        // ÇÃ·¹ÀÌ¾î ¹«Àû »óÅÂ ÇØÁ¦
+        // í”Œë ˆì´ì–´ ë¬´ì  ìƒíƒœ í•´ì œ
         if (playerController != null)
         {
             playerController.SetInvincible(false);
         }
     }
 
-    // ºÎ½ºÅÍ È¿°ú Àû¿ë
+    // ë¶€ìŠ¤í„° íš¨ê³¼ ì ìš©
     void ApplyBoosterEffects()
     {
-        // 1. ¹è°æ ¼Óµµ Áõ°¡
+        // 1. ë°°ê²½ ì†ë„ ì¦ê°€
         if (backgrounds != null)
         {
             for (int i = 0; i < backgrounds.Length; i++)
@@ -164,16 +168,16 @@ public class BoosterSystem : MonoBehaviour
             }
         }
 
-        // 2. ½ºÆ÷³Ê ¼Óµµ Áõ°¡ (ÀÌ¹Ì »ı¼ºµÈ ¿ÀºêÁ§Æ®µé)
+        // 2. ê¸°ì¡´ì˜ ì†ë„ ë³€ê²½ (ì´ë¯¸ ìƒì„±ëœ ì˜¤ë¸Œì íŠ¸ë“¤)
         ApplySpeedToExistingObjects();
 
-        Debug.Log($" Booster effects applied - Speed multiplier: {speedMultiplier}x");
+        Debug.Log($"Booster effects applied - Speed multiplier: {speedMultiplier}x");
     }
 
-    // ºÎ½ºÅÍ È¿°ú ÇØÁ¦
+    // ë¶€ìŠ¤í„° íš¨ê³¼ ë¦¬ì…‹
     void ResetBoosterEffects()
     {
-        // 1. ¹è°æ ¼Óµµ º¹¿ø
+        // 1. ë°°ê²½ ì†ë„ ë¦¬ì…‹
         if (backgrounds != null && originalBackgroundSpeeds != null)
         {
             for (int i = 0; i < backgrounds.Length && i < originalBackgroundSpeeds.Length; i++)
@@ -185,13 +189,13 @@ public class BoosterSystem : MonoBehaviour
             }
         }
 
-        // 2. ±âÁ¸ ¿ÀºêÁ§Æ® ¼Óµµ º¹¿ø
+        // 2. ê¸°ì¡´ ì˜¤ë¸Œì íŠ¸ ì†ë„ ë¦¬ì…‹
         ResetSpeedOfExistingObjects();
 
-        Debug.Log(" Booster effects reset");
+        Debug.Log("Booster effects reset");
     }
 
-    // ±âÁ¸ ¿ÀºêÁ§Æ®µé¿¡ ¼Óµµ Àû¿ë
+    // ê¸°ì¡´ ì˜¤ë¸Œì íŠ¸ë“¤ì— ì†ë„ ì ìš©
     void ApplySpeedToExistingObjects()
     {
         MovingObject[] movingObjects = FindObjectsOfType<MovingObject>();
@@ -201,7 +205,7 @@ public class BoosterSystem : MonoBehaviour
             {
                 movingObj.speed *= speedMultiplier;
 
-                // Rigidbody2D ¼Óµµµµ Á¶Á¤
+                // Rigidbody2D ì†ë„ë„ ì¡°ì •
                 Rigidbody2D rb = movingObj.GetComponent<Rigidbody2D>();
                 if (rb != null)
                 {
@@ -211,7 +215,7 @@ public class BoosterSystem : MonoBehaviour
         }
     }
 
-    // ±âÁ¸ ¿ÀºêÁ§Æ®µé ¼Óµµ º¹¿ø
+    // ê¸°ì¡´ ì˜¤ë¸Œì íŠ¸ì˜ ì†ë„ ë¦¬ì…‹
     void ResetSpeedOfExistingObjects()
     {
         MovingObject[] movingObjects = FindObjectsOfType<MovingObject>();
@@ -221,7 +225,7 @@ public class BoosterSystem : MonoBehaviour
             {
                 movingObj.speed /= speedMultiplier;
 
-                // Rigidbody2D ¼Óµµµµ Á¶Á¤
+                // Rigidbody2D ì†ë„ë„ ì¡°ì •
                 Rigidbody2D rb = movingObj.GetComponent<Rigidbody2D>();
                 if (rb != null)
                 {
@@ -231,36 +235,42 @@ public class BoosterSystem : MonoBehaviour
         }
     }
 
-    // ºÎ½ºÅÍ ½Ã°¢ È¿°ú
-    IEnumerator BoosterVisualEffect()
-    {
-        while (isBoosterActive)
-        {
-            // È­¸é ¹øÂ½ÀÓ È¿°ú
-            if (gameManager != null)
-            {
-                gameManager.TriggerFlashEffect(boosterColor, 0.1f);
-            }
+    // ë¶€ìŠ¤í„° ì‹œê° íš¨ê³¼
+    //IEnumerator BoosterVisualEffect()
+    //{
+    //    while (isBoosterActive)
+    //    {
+    //        // í™”ë©´ í”Œë˜ì‹œ íš¨ê³¼
+   //         if (gameManager != null)
+    //        {
+     //           gameManager.TriggerFlashEffect(boosterColor, 0.1f);
+    //        }
+//
+   //         yield return new WaitForSeconds(flashInterval);
+    //    }
+  //  }
 
-            yield return new WaitForSeconds(flashInterval);
-        }
-    }
-
-    // Àå¾Ö¹° ÆÄ±« (PlayerController¿¡¼­ È£ÃâµÊ)
+    // ì¥ì• ë¬¼ íŒŒê´´ (PlayerControllerì—ì„œ í˜¸ì¶œë¨)
     public void DestroyObstacle(GameObject obstacle)
     {
         if (!isBoosterActive) return;
 
-        Debug.Log($" Obstacle destroyed by booster: {obstacle.name}");
+        Debug.Log($"Obstacle destroyed by booster: {obstacle.name}");
 
-        // ÆÄ±« È¿°ú »ı¼º
+        // íŒŒê´´ íš¨ê³¼ ì‹¤í–‰
         StartCoroutine(ObstacleDestroyEffect(obstacle));
+        
+        // ì¥ì• ë¬¼ íŒŒê´´ ì‹œ í™”ë©´ íš¨ê³¼
+       // if (gameManager != null)
+       // {
+       //     gameManager.TriggerFlashEffect(obstacleDestroyColor, obstacleDestroyFlashDuration);
+       // }
 
-        // »ç¿îµå Àç»ı
+        // ì‚¬ìš´ë“œ ì¬ìƒ
         PlaySound(obstacleDestroySound);
     }
 
-    // Àå¾Ö¹° ÆÄ±« È¿°ú
+    // ì¥ì• ë¬¼ íŒŒê´´ íš¨ê³¼
     IEnumerator ObstacleDestroyEffect(GameObject obstacle)
     {
         if (obstacle == null) yield break;
@@ -268,43 +278,54 @@ public class BoosterSystem : MonoBehaviour
         Vector3 originalPosition = obstacle.transform.position;
         Vector3 originalScale = obstacle.transform.localScale;
 
-        // È¸ÀüÇÏ¸é¼­ ³¯¾Æ°¡´Â È¿°ú
+        // íšŒì „í•˜ë©´ì„œ ë‚ ì•„ê°€ëŠ” íš¨ê³¼
         float duration = 1f;
         float elapsed = 0f;
 
-        // ·£´ı ¹æÇâÀ¸·Î ³¯¾Æ°¥ º¤ÅÍ
+        // ëœë¤ ë°©í–¥ìœ¼ë¡œ ë‚ ì•„ê°ˆ ë°©í–¥
         Vector3 flyDirection = new Vector3(
             Random.Range(-1f, 1f),
             Random.Range(0.5f, 1f),
             0
         ).normalized;
 
+        // ì¶”ê°€ íŒŒí‹°í´ íš¨ê³¼ ìƒì„± (ê°„ë‹¨í•œ ë³„ íŒŒí‹°í´)
+        CreateDestroyParticles(originalPosition);
+
         while (elapsed < duration && obstacle != null)
         {
             elapsed += Time.deltaTime;
             float progress = elapsed / duration;
 
-            // È¸Àü
+            // íšŒì „
             obstacle.transform.Rotate(0, 0, 720 * Time.deltaTime);
 
-            // ³¯¾Æ°¡±â
+            // ë‚ ì•„ê°€ê¸°
             obstacle.transform.position = originalPosition + flyDirection * progress * 5f;
 
-            // Å©±â Ãà¼Ò
+            // í¬ê¸° ê°ì†Œ
             float scale = Mathf.Lerp(1f, 0f, progress);
             obstacle.transform.localScale = originalScale * scale;
 
             yield return null;
         }
 
-        // ¿ÀºêÁ§Æ® »èÁ¦
+        // ì˜¤ë¸Œì íŠ¸ ì œê±°
         if (obstacle != null)
         {
             Destroy(obstacle);
         }
     }
+    
+    // íŒŒê´´ íŒŒí‹°í´ ìƒì„± (ê°„ë‹¨í•œ ë³„ íŒŒí‹°í´)
+    void CreateDestroyParticles(Vector3 position)
+    {
+        // ìœ ë‹ˆí‹° ì—ë””í„°ì—ì„œ êµ¬í˜„ í•„ìš” - í˜„ì¬ëŠ” ê°„ë‹¨í•œ ë”ë¯¸ êµ¬í˜„
+        // ì‹¤ì œ ê²Œì„ì—ì„œëŠ” íŒŒí‹°í´ ì‹œìŠ¤í…œì„ ì‚¬ìš©í•˜ëŠ” ê²ƒì´ ì¢‹ìŒ
+        Debug.Log("Obstacle destroy particles created at " + position);
+    }
 
-    // »ç¿îµå Àç»ı
+    // ì‚¬ìš´ë“œ ì¬ìƒ
     void PlaySound(AudioClip clip)
     {
         if (clip != null && gameManager != null && gameManager.sfxAudioSource != null)
@@ -313,13 +334,13 @@ public class BoosterSystem : MonoBehaviour
         }
     }
 
-    // °ø°³ ¸Ş¼­µåµé
+    // ìƒíƒœ ë©”ì„œë“œë“¤
     public bool IsBoosterActive() => isBoosterActive;
     public float GetBoosterTimeRemaining() => isBoosterActive ? boosterTimer : 0f;
     public float GetBoosterTimeRatio() => isBoosterActive ? boosterTimer / boosterDuration : 0f;
     public float GetSpeedMultiplier() => speedMultiplier;
 
-    // °ÔÀÓ ½ÃÀÛ ½Ã ÃÊ±âÈ­
+    // ë¦¬ì…‹ ë©”ì„œë“œ
     public void ResetBooster()
     {
         if (isBoosterActive)
